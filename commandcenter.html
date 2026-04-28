@@ -2408,5 +2408,27 @@
 
     init();
 </script>
+<script>
+window.doLogin = async function () {
+    const username = document.querySelector("input[type='text']")?.value;
+    const password = document.querySelector("input[type='password']")?.value;
+
+    if (!username || !password) {
+        alert("Isi username & password");
+        return;
+    }
+
+    const res = await VMS_API.login(username, password);
+
+    console.log("LOGIN RESULT:", res);
+
+    if (res.ok) {
+        localStorage.setItem("vms_admin_token", res.token);
+        location.reload();
+    } else {
+        alert(res.error || "Login gagal");
+    }
+};
+</script>
 </body>
 </html>
