@@ -2261,5 +2261,21 @@ window.doLogin = async function () {
     }
 };
 </script>
+    <script>
+window.doLogin = async function () {
+    const username = document.getElementById("loginUsername")?.value.trim();
+    const password = document.getElementById("loginPassword")?.value.trim();
+
+    console.log("VALUE:", username, password);
+
+    if (!username || !password) {
+        alert("Isi username & password");
+        return;
+    }
+
+    const res = await VMS_API.login(username, password);
+    console.log("LOGIN:", res);
+};
+</script>
 </body>
 </html>
