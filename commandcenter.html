@@ -2239,32 +2239,19 @@
 
     init();
 </script>
-<script>
+    <script>
 window.doLogin = async function () {
-    const username = document.querySelector("input[type='text']")?.value;
-    const password = document.querySelector("input[type='password']")?.value;
+    const inputs = document.querySelectorAll("input");
 
-    if (!username || !password) {
-        alert("Isi username & password");
+    console.log("ALL INPUTS:", inputs);
+
+    if (inputs.length < 2) {
+        alert("Input tidak ditemukan");
         return;
     }
 
-    const res = await VMS_API.login(username, password);
-
-    console.log("LOGIN RESULT:", res);
-
-    if (res.ok) {
-        localStorage.setItem("vms_admin_token", res.token);
-        location.reload();
-    } else {
-        alert(res.error || "Login gagal");
-    }
-};
-</script>
-    <script>
-window.doLogin = async function () {
-    const username = document.getElementById("loginUsername")?.value.trim();
-    const password = document.getElementById("loginPassword")?.value.trim();
+    const username = inputs[0].value.trim();
+    const password = inputs[1].value.trim();
 
     console.log("VALUE:", username, password);
 
