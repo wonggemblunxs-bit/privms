@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>VMS Client Portal | Device Management</title>
+    <script src="api.js"></script>
     <style>
         * {
             margin: 0;
@@ -606,12 +607,55 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-    const API_URL = "https://privms.wonggemblunxs.workers.dev";
+    const API_URL = "https://privms.wonggemblunxs.workers.dev/";
     let currentLicense = null;
     let currentCompany = null;
     let devicesData = [];
     let activityData = [];
     let refreshInterval = null;
+
+    // ==================== VMS API GUARD ====================
+    if (typeof VMS_API === 'undefined' && typeof window.VMS_API !== 'undefined') {
+        var VMS_API = window.VMS_API;
+    }
+    
+    if (typeof VMS_API === 'undefined') {
+        console.warn("[Client] VMS_API not loaded, creating fallback");
+        var VMS_API = {
+            validate: async (key, id, name, meta) => {
+                const res = await fetch(API_URL + "/validate-license", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ licenseKey: key, deviceId: id, deviceName: name, meta: meta || {} })
+                });
+                return res.json();
+            },
+            checkin: async (key, id, action, loc) => {
+                const res = await fetch(API_URL + "/checkin", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ licenseKey: key, deviceId: id, action: action, location: loc })
+                });
+                return res.json();
+            },
+            sync: async (key, id, last) => {
+                const res = await fetch(API_URL + "/sync-data", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ licenseKey: key, deviceId: id, lastSync: last })
+                });
+                return res.json();
+            },
+            save: async (key, id, visitors, logs) => {
+                const res = await fetch(API_URL + "/save", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ licenseKey: key, deviceId: id, visitors: visitors || {}, logs: logs || [] })
+                });
+                return res.json();
+            }
+        };
+    }
 
     function getLicenseKey() {
         const urlParams = new URLSearchParams(window.location.search);
@@ -690,18 +734,10 @@
 
         showToast("Validating license...", "info");
 
-        const data = await apiCall("/validate-license", {
-            method: "POST",
-            body: JSON.stringify({
-                licenseKey: licenseKey,
-                deviceId: deviceId,
-                deviceName: deviceName,
-                meta: {
-                    browser: navigator.userAgent,
-                    platform: navigator.platform,
-                    timestamp: Date.now()
-                }
-            })
+        const data = await VMS_API.validate(licenseKey, deviceId, deviceName, {
+            browser: navigator.userAgent,
+            platform: navigator.platform,
+            timestamp: Date.now()
         });
 
         if (data && data.ok) {
@@ -857,15 +893,7 @@
         
         showToast("Registering device...", "info");
         
-        const data = await apiCall("/validate-license", {
-            method: "POST",
-            body: JSON.stringify({
-                licenseKey: currentLicense,
-                deviceId: deviceId,
-                deviceName: deviceName,
-                meta: { info: meta, registeredAt: Date.now() }
-            })
-        });
+        const data = await VMS_API.validate(currentLicense, deviceId, deviceName, { info: meta, registeredAt: Date.now() });
         
         if (data && data.ok) {
             const newDevice = {
@@ -961,15 +989,7 @@
         
         showToast(`Processing ${action}...`, "info");
         
-        const data = await apiCall("/checkin", {
-            method: "POST",
-            body: JSON.stringify({
-                licenseKey: currentLicense,
-                deviceId: deviceId,
-                action: action,
-                location: location || null
-            })
-        });
+        const data = await VMS_API.checkin(currentLicense, deviceId, action, location || null);
         
         if (data && data.ok) {
             showToast(`${action === 'IN' ? 'Check-in' : 'Check-out'} successful!`, "success");
@@ -1044,7 +1064,7 @@
         const tbody = document.getElementById("activityTableBody");
         
         if (!activityData || activityData.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align: center;">No activity recorded yet</span></tr>';
+            tbody.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align: center;">No activity recorded yet</td></tr>';
             return;
         }
         
@@ -1054,10 +1074,10 @@
             const row = tbody.insertRow();
             const actionClass = activity.action === 'CHECK_IN' ? 'text-success' : (activity.action === 'CHECK_OUT' ? 'text-warning' : 'text-info');
             row.innerHTML = `
-                <td>${formatDateTime(activity.timestamp)}</span></td>
-                <td>${escapeHtml(activity.deviceName || activity.deviceId)}</span></td>
-                <td class="${actionClass}">${activity.action || activity.type}</span></td>
-                <td>${escapeHtml(activity.details || '-')}</span></td>
+                <td>${formatDateTime(activity.timestamp)}</td>
+                <td>${escapeHtml(activity.deviceName || activity.deviceId)}</td>
+                <td class="${actionClass}">${activity.action || activity.type}</td>
+                <td>${escapeHtml(activity.details || '-')}</td>
             `;
         }
     }
@@ -1215,7 +1235,7 @@ if (window.loadDevices) {
 
     window.loadDevices = async function () {
         try {
-            const licenseKey = localStorage.getItem("vms_license_key");
+            const licenseKey = localStorage.getItem("vms_client_license");
             if (!licenseKey) return __old_loadDevices();
 
             const res = await fetch(API_URL + "/client/devices", {

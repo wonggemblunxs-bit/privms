@@ -6,6 +6,7 @@
     <title>VMS Command Center | Enterprise Admin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="api.js"></script>
     <style>
         * {
             margin: 0;
@@ -457,7 +458,6 @@
             to { transform: rotate(360deg); }
         }
 
-        /* ==================== CHANGE PASSWORD MODAL STYLE ==================== */
         .modal-overlay {
             position: fixed;
             top: 0;
@@ -710,7 +710,7 @@
                 <div class="table-wrapper">
                     <table id="companiesTable" style="width: 100%;">
                         <thead>
-                            <td>
+                            <tr>
                                 <th>Company</th><th>License Key</th><th>Package</th><th>Devices</th><th>Max</th><th>Expiry</th><th>Status</th><th>Actions</th>
                             </tr>
                         </thead>
@@ -1086,7 +1086,6 @@
     </div>
 </div>
 
-<!-- ==================== CHANGE PASSWORD MODAL ==================== -->
 <div id="changePasswordModal" class="modal-overlay" style="display: none;">
     <div class="modal-box">
         <h3>🔐 Ganti Password</h3>
@@ -1103,7 +1102,7 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <script>
-    const API_URL = "https://privms.wonggemblunxs.workers.dev";
+    const API_URL = "https://privms.wonggemblunxs.workers.dev/";
     
     let currentUser = null;
     let refreshInterval = null;
@@ -1117,6 +1116,88 @@
     let invoicesData = [];
 
     let syncLock = false;
+
+    // ==================== VMS API GUARD ====================
+    if (typeof VMS_API === 'undefined' && typeof window.VMS_API !== 'undefined') {
+        var VMS_API = window.VMS_API;
+    }
+    
+    if (typeof VMS_API === 'undefined') {
+        console.warn("[Command] VMS_API not loaded, creating fallback");
+        var VMS_API = {
+            adminStats: async () => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/stats", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+                return res.json();
+            },
+            adminCompanies: async () => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/companies", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+                return res.json();
+            },
+            adminDevices: async () => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/devices", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+                return res.json();
+            },
+            adminActivity: async (limit) => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/activity", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token, limit: limit || 500 })
+                });
+                return res.json();
+            },
+            adminInvoices: async () => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/invoices", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token })
+                });
+                return res.json();
+            },
+            adminDeviceRequests: async (status) => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/admin/device-requests", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token, status: status })
+                });
+                return res.json();
+            },
+            generateLicense: async (data) => {
+                const token = localStorage.getItem("vms_admin_token");
+                const res = await fetch(API_URL + "/generate-license", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: token, ...data })
+                });
+                return res.json();
+            },
+            login: async (username, password) => {
+                const res = await fetch(API_URL + "/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ username, password })
+                });
+                return res.json();
+            }
+        };
+    }
 
     function showToast(message, type = "info") {
         const container = document.getElementById("toastContainer");
@@ -1274,15 +1355,7 @@
         showToast("Logging in...", "info");
 
         try {
-            const res = await fetch(API_URL + "/login", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({ username, password })
-            });
-
-            const data = await res.json();
+            const data = await VMS_API.login(username, password);
 
             if (data && data.ok) {
                 localStorage.setItem("vms_admin_token", data.token);
@@ -1350,7 +1423,7 @@
     }
 
     async function loadStats() {
-        const data = await apiCall("/admin/stats");
+        const data = await VMS_API.adminStats();
         if (data) {
             document.getElementById("statTotalCompanies").innerText = data.companies?.total || 0;
             document.getElementById("statActiveCompanies").innerText = data.companies?.active || 0;
@@ -1398,7 +1471,7 @@
     }
 
     async function loadCompanies() {
-        const data = await apiCall("/admin/companies");
+        const data = await VMS_API.adminCompanies();
         if (data && Array.isArray(data)) {
             companiesData = data;
             renderCompaniesTable();
@@ -1487,7 +1560,7 @@
             row.innerHTML = `
                 <td><strong>${escapeHtml(company.companyName)}</strong></td>
                 <td><span class="badge ${company.package === 'PRO' ? 'badge-pro' : 'badge-basic'}">${escapeHtml(company.package)}</span></td>
-                <td class="${isExpired ? 'text-danger' : 'text-warning'}">${formatDate(company.expiredAt)}</td>
+                <td class="${isExpired ? 'text-danger' : 'text-warning'}">${formatDate(company.expiredAt)}</span></td>
                 <td>${company.currentDevices || 0}</td>
                 <td><span class="badge ${isExpired ? 'badge-expired' : 'badge-warning'}">${isExpired ? 'EXPIRED' : 'Expiring Soon'}</span></td>
                 <td><button class="btn btn-warning btn-sm" onclick="openRenewModal('${company.id}', '${escapeHtml(company.companyName)}')">Renew</button></td>
@@ -1497,7 +1570,7 @@
     }
 
     async function loadDevices() {
-        const data = await apiCall("/admin/devices");
+        const data = await VMS_API.adminDevices();
         if (data && Array.isArray(data)) {
             devicesData = data;
             renderDevicesTable();
@@ -1536,7 +1609,7 @@
                 <td><strong>${escapeHtml(device.companyName || "-")}</strong></td>
                 <td><code class="code">${escapeHtml(device.licenseKey || "-")}</code></td>
                 <td><span class="badge ${statusClass}">${escapeHtml(device.status)}</span></td>
-                <td>${formatDateTime(device.lastSeen)}</td>
+                <td>${formatDateTime(device.lastSeen)}</span></td>
                 <td>${device.violations?.length || 0}</td>
                 <td>
                     <button class="btn btn-info btn-sm" onclick="viewDeviceDetails('${device.deviceId}')">Detail</button>
@@ -1549,7 +1622,7 @@
     }
 
     async function loadActivity() {
-        const data = await apiCall("/admin/activity?limit=500");
+        const data = await VMS_API.adminActivity(500);
         if (data && Array.isArray(data)) {
             activityData = data;
             renderViolationsTable();
@@ -1580,8 +1653,8 @@
                 <td><code class="code">${v.deviceId ? escapeHtml(v.deviceId.substring(0, 12)) : '-'}...</code></td>
                 <td><span class="badge badge-danger">${escapeHtml(v.violationType || 'Unknown')}</span></td>
                 <td>${escapeHtml(v.details || '-')}</td>
-                <td>${formatDateTime(v.timestamp)}</td>
-                <td><button class="btn btn-warning btn-sm" onclick="viewViolationDetails('${v.id}')">View</button></td>
+                <td>${formatDateTime(v.timestamp)}</span></td>
+                <td><button class="btn btn-warning btn-sm" onclick="vms_viewViolationDetails('${v.id}')">View</button></td>
             `;
             tbody.appendChild(row);
         }
@@ -1602,7 +1675,7 @@
                 <td><strong>${escapeHtml(v.companyName || '-')}</strong></td>
                 <td><code class="code">${v.deviceId ? escapeHtml(v.deviceId.substring(0, 12)) : '-'}...</code></td>
                 <td><span class="badge badge-danger">${escapeHtml(v.violationType || 'Unknown')}</span></td>
-                <td>${formatDateTime(v.timestamp)}</td>
+                <td>${formatDateTime(v.timestamp)}</span></td>
                 <td><span class="badge badge-warning">Reported</span></td>
             `;
             tbody.appendChild(row);
@@ -1626,7 +1699,7 @@
                 <td><strong>${escapeHtml(device.companyName || '-')}</strong></td>
                 <td><code class="code">${device.deviceId ? escapeHtml(device.deviceId.substring(0, 16)) : '-'}...</code></td>
                 <td>${escapeHtml(device.deviceName || '-')}</td>
-                <td>${formatDateTime(device.approvalRequest?.requestedAt || device.firstSeen)}</td>
+                <td>${formatDateTime(device.approvalRequest?.requestedAt || device.firstSeen)}</span></td>
                 <td>
                     <button class="btn btn-success btn-sm" onclick="approveDeviceRequest('${escapeHtml(device.deviceId)}', true)">✅ Approve</button>
                     <button class="btn btn-danger btn-sm" onclick="approveDeviceRequest('${escapeHtml(device.deviceId)}', false)">❌ Reject</button>
@@ -1637,7 +1710,7 @@
     }
 
     async function loadInvoices() {
-        const data = await apiCall("/admin/invoices");
+        const data = await VMS_API.adminInvoices();
         if (data && Array.isArray(data)) {
             invoicesData = data;
             renderInvoicesTable();
@@ -1660,10 +1733,10 @@
             row.innerHTML = `
                 <td><code class="code">${escapeHtml(inv.id)}</code></td>
                 <td><strong>${escapeHtml(inv.companyName)}</strong></td>
-                <td>${formatCurrency(inv.amount)}</td>
+                <td>${formatCurrency(inv.amount)}</span></td>
                 <td>${inv.months} month(s)</td>
                 <td><span class="badge ${inv.status === 'PAID' ? 'badge-active' : 'badge-pending'}">${escapeHtml(inv.status)}</span></td>
-                <td>${formatDate(inv.createdAt)}</td>
+                <td>${formatDate(inv.createdAt)}</span></td>
                 <td>
                     ${inv.status === 'UNPAID' ? `<button class="btn btn-success btn-sm" onclick="markInvoicePaid('${inv.id}')">Mark Paid</button>` : '-'}
                 </td>
@@ -1688,10 +1761,10 @@
         for (const company of recent.slice(0, 10)) {
             const row = document.createElement("tr");
             row.innerHTML = `
-                <td>${escapeHtml(company.companyName)}</td>
+                <td>${escapeHtml(company.companyName)}</span></td>
                 <td><code class="code">${escapeHtml(company.licenseKey)}</code></td>
                 <td><span class="badge ${company.package === 'PRO' ? 'badge-pro' : 'badge-basic'}">${escapeHtml(company.package)}</span></td>
-                <td>${formatDate(company.createdAt)}</td>
+                <td>${formatDate(company.createdAt)}</span></td>
             `;
             tbody.appendChild(row);
         }
@@ -1714,14 +1787,11 @@
         
         showToast("Generating license...", "info");
         
-        const data = await apiCall("/generate-license", {
-            method: "POST",
-            body: JSON.stringify({
-                companyName, pic, phone, email, address,
-                package: pkg,
-                customMaxDevices: maxDevices ? parseInt(maxDevices) : null,
-                notes
-            })
+        const data = await VMS_API.generateLicense({
+            companyName, pic, phone, email, address,
+            package: pkg,
+            customMaxDevices: maxDevices ? parseInt(maxDevices) : null,
+            notes
         });
         
         if (data && data.ok) {
@@ -1917,9 +1987,9 @@
                             ${(data.devices || []).map(d => `
                                 <tr>
                                     <td><code>${escapeHtml(d.deviceId ? d.deviceId.substring(0, 12) : '-')}...</code></td>
-                                    <td>${escapeHtml(d.deviceName || '-')}</td>
+                                    <td>${escapeHtml(d.deviceName || '-')}</span></td>
                                     <td><span class="badge ${d.status === 'ACTIVE' ? 'badge-active' : 'badge-pending'}">${escapeHtml(d.status)}</span></td>
-                                    <td>${formatDateTime(d.lastSeen)}</td>
+                                    <td>${formatDateTime(d.lastSeen)}</span></td>
                                 </tr>
                             `).join('') || '<tr><td colspan="4" class="text-muted">No devices</span></tr>'}
                         </tbody>
@@ -1956,7 +2026,7 @@
                             <tr>
                                 <td><span class="badge badge-danger">${escapeHtml(v.violationType)}</span></td>
                                 <td>${escapeHtml(v.details || '-')}</td>
-                                <td>${formatDateTime(v.timestamp)}</td>
+                                <td>${formatDateTime(v.timestamp)}</span></td>
                             </tr>
                         `).join('') || '<tr><td colspan="3" class="text-muted">No violations</span></td>'}
                     </tbody>
@@ -1964,6 +2034,15 @@
             </div>
         `;
         document.getElementById("deviceDetailModal").classList.add("active");
+    }
+
+    function vms_viewViolationDetails(violationId) {
+        const violation = activityData.find(v => v.id === violationId);
+        if (violation) {
+            alert("Violation Details:\n" + JSON.stringify(violation, null, 2));
+        } else {
+            showToast("Violation not found", "error");
+        }
     }
 
     async function addAdminUser() {
@@ -2156,8 +2235,7 @@
 
     async function loadDeviceRequests() {
         const statusFilter = document.getElementById("requestStatusFilter")?.value || "";
-        const url = "/admin/device-requests" + (statusFilter ? `?status=${statusFilter}` : "");
-        const data = await apiCall(url);
+        const data = await VMS_API.adminDeviceRequests(statusFilter);
         if (data && Array.isArray(data)) {
             renderDeviceRequestsTable(data);
         }
@@ -2179,10 +2257,10 @@
             
             row.innerHTML = `
                 <td><strong>${escapeHtml(req.companyName)}</strong></td>
-                <td>${escapeHtml(req.deviceName)}</td>
+                <td>${escapeHtml(req.deviceName)}</span></td>
                 <td>Rp ${(req.fee || 0).toLocaleString()}</td>
                 <td><span class="badge ${statusClass}">${escapeHtml(req.status)}</span></td>
-                <td>${formatDate(req.requestedAt)}</td>
+                <td>${formatDate(req.requestedAt)}</span></td>
                 <td>
                     ${req.status === "PENDING" ? `
                         <button class="btn btn-success btn-sm" onclick="approveDeviceRequestFee('${req.id}')">✅ Approve & Invoice</button>

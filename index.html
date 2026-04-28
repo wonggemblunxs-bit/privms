@@ -9,6 +9,7 @@
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+    <script src="api.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #f0f2f5; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1a2c3e; }
@@ -61,6 +62,9 @@
         th { text-align: left; padding: 14px 16px; background: #f8fafc; color: #1f4e4a; border-bottom: 1px solid #e2e8f0; }
         td { padding: 12px 16px; border-bottom: 1px solid #edf2f7; }
         #cameraPreview { width: 100%; max-width: 500px; background: #000; border-radius: 24px; overflow: hidden; min-height: 200px; }
+        .sync-status { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #0f0; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-family: monospace; z-index: 9999; }
+        .sync-status.syncing { color: #ff0; }
+        .sync-status.error { color: #f00; }
         @media (max-width: 780px) {
             .sidebar { display: none; }
             .mobile-header { display: flex; }
@@ -68,8 +72,6 @@
             .grid-2 { grid-template-columns: 1fr; }
         }
         .error-fallback { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 20px; text-align: center; color: #991b1b; margin: 20px; }
-        .login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: white; z-index: 10000; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(8px); background: rgba(15,44,44,0.95); }
-        .login-card { background: white; border-radius: 48px; padding: 40px; width: 360px; box-shadow: 0 20px 35px -10px rgba(0,0,0,0.2); }
         .user-badge { background: #e2e8f0; border-radius: 40px; padding: 6px 16px; font-size: 0.75rem; margin-left: 16px; font-weight: 600; color: #1f4e4a; display: inline-flex; align-items: center; gap: 8px; }
         .site-selector-wrap { margin-bottom: 20px; background: white; border-radius: 28px; padding: 8px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid #e2edf2; }
         .site-selector-wrap label { font-weight: 600; color: #2b5a55; font-size: 0.8rem; }
@@ -84,22 +86,8 @@
         .progress-bar-fill.critical { background: #ef4444; }
         .limit-info { font-size: 0.75rem; color: #5f7f7c; margin-top: 4px; display: flex; justify-content: space-between; }
         .monetization-badge { font-size: 0.7rem; font-weight: 600; margin-left: 8px; }
-        .monetization-badge.demo { background: #fef3c7; color: #92400e; }
-        .monetization-badge.basic { background: #dbeafe; color: #1e40af; }
-        .monetization-badge.pro { background: #d1fae5; color: #065f46; }
-        
-        /* vmsSite Modal Styles */
-        .vms-modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
-            display: flex; align-items: center; justify-content: center;
-            z-index: 10001;
-        }
-        .vms-modal-card {
-            background: white; border-radius: 28px; padding: 28px;
-            width: 420px; max-width: 90%;
-            box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
-        }
+        .vms-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 10001; }
+        .vms-modal-card { background: white; border-radius: 28px; padding: 28px; width: 420px; max-width: 90%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
         .vms-modal-card h3 { margin-bottom: 20px; color: #1f4e4a; display: flex; align-items: center; gap: 8px; }
         .vms-input-group { margin-bottom: 16px; }
         .vms-input-group label { display: block; font-size: 0.7rem; font-weight: 600; color: #2b5a55; margin-bottom: 5px; text-transform: uppercase; }
@@ -112,21 +100,6 @@
     </style>
 </head>
 <body>
-
-<div id="loginOverlay" class="login-overlay" style="display: none;">
-    <div class="login-card">
-        <h2 style="color: #1f4e4a; margin-bottom: 24px;">🔐 VMS Enterprise</h2>
-        <div class="input-field" style="margin-bottom: 16px;">
-            <label>Username</label>
-            <input type="text" id="loginUsername" placeholder="username">
-        </div>
-        <div class="input-field" style="margin-bottom: 24px;">
-            <label>Password</label>
-            <input type="password" id="loginPassword" placeholder="********">
-        </div>
-        <button id="doLoginBtn" style="width:100%;">Login</button>
-    </div>
-</div>
 
 <div id="temp-reader" style="display:none;"></div>
 
@@ -144,7 +117,7 @@
     <div class="nav-item mobile-nav" data-tab="logs">📜 Logs</div>
 </div>
 
-<div class="app-layout" id="appLayout" style="display: none;">
+<div class="app-layout" id="appLayout" style="display: flex;">
     <div class="sidebar">
         <div class="logo-area"><h1 id="brandSidebarMain" data-site="SITE_A">VMS</h1><p>Enterprise Access</p></div>
         <div class="nav-item active" data-tab="dashboard">📊 Dashboard</div>
@@ -176,8 +149,8 @@
                 </select>
                 <div id="userInfoTop" class="user-badge"></div>
                 <button id="logoutBtnTop" class="btn-outline" style="background:#b91c1c; color:white;">Logout</button>
-                <!-- vmsSite Edit Button - Monetization Aware -->
                 <button id="vmsSiteEditBtn" onclick="vmsSite_open()" style="background:#0f2c2c; margin-left:8px;">⚙️ Rename Site</button>
+                <button id="manualSyncBtn" style="background:#0f2c2c;" onclick="manualSync()">🔄 Sync Now</button>
             </div>
         </div>
 
@@ -187,7 +160,6 @@
             <div id="licenseStatusBadge" class="license-badge">DEMO MODE</div>
         </div>
 
-        <!-- MONETIZATION PROGRESS BAR UI -->
         <div id="monetizationProgressCard" style="background:white; border-radius:20px; padding:16px; margin-bottom:16px; border:1px solid #e2e8f0;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                 <span style="font-weight:600; font-size:0.8rem;">📊 Visitor Usage Limit</span>
@@ -263,7 +235,6 @@
     </div>
 </div>
 
-<!-- vmsSite Modal - Monetization Aware UI -->
 <div id="vmsSiteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:10001;">
     <div style="background:white; border-radius:28px; padding:28px; width:420px; max-width:90%;">
         <h3 style="margin-bottom:20px; color:#1f4e4a; display:flex; align-items:center; gap:8px;">
@@ -295,139 +266,233 @@
     </div>
 </div>
 
+<div id="syncStatus" class="sync-status">🔄 Syncing...</div>
+
 <script>
+// ==================== KONFIGURASI ====================
+const CLOUD_URL = "https://privms.wonggemblunxs.workers.dev";
 
-// ================= vmsSite SYSTEM - PURE ADDITIVE, NO CONFLICT =================
-// All functions prefixed with vmsSite_ to guarantee no collision
 
-const VMS_SITE_API_URL = "https://privms.wonggemblunxs.workers.dev";
+// ==================== SINKRONISASI DATA DARI CLOUD (PULL) ====================
+let isSyncing = false;
+let lastSyncTime = localStorage.getItem("vms_last_sync") || 0;
 
-// Global state for site names with safe initialization
+function updateSyncStatus(status, message) {
+    const el = document.getElementById("syncStatus");
+    if (!el) return;
+    if (status === "syncing") {
+        el.innerHTML = "🔄 " + message;
+        el.className = "sync-status syncing";
+    } else if (status === "success") {
+        el.innerHTML = "✅ " + message;
+        el.className = "sync-status";
+        setTimeout(() => { if(el.innerHTML === "✅ " + message) el.innerHTML = "☁️ Cloud Sync Active"; }, 3000);
+    } else if (status === "error") {
+        el.innerHTML = "❌ " + message;
+        el.className = "sync-status error";
+        setTimeout(() => { if(el.innerHTML === "❌ " + message) el.innerHTML = "☁️ Cloud Sync Active"; }, 3000);
+    } else {
+        el.innerHTML = message || "☁️ Cloud Sync Active";
+        el.className = "sync-status";
+    }
+}
+
+async function syncFromCloud() {
+    if (isSyncing) {
+        console.log("[SYNC] Already syncing, skip");
+        return;
+    }
+    
+    const licenseKey = localStorage.getItem("vms_license_key");
+    if (!licenseKey) {
+        updateSyncStatus("error", "No license key");
+        return;
+    }
+    
+    const deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) return;
+    
+    isSyncing = true;
+    updateSyncStatus("syncing", "Fetching from cloud...");
+    
+    try {
+        const data = await VMS_API.sync(licenseKey, deviceId, lastSyncTime);
+        
+        if (!data.ok) {
+            throw new Error(data.error || "Sync failed");
+        }
+        
+        let newVisitorsCount = 0;
+        let newLogsCount = 0;
+        
+        if (data.visitors && typeof data.visitors === 'object') {
+            for (const [key, value] of Object.entries(data.visitors)) {
+                if (!window.visitors || !window.visitors[key]) {
+                    if (!window.visitors) window.visitors = {};
+                    window.visitors[key] = value;
+                    newVisitorsCount++;
+                } else if (value.updatedAt && window.visitors[key].updatedAt < value.updatedAt) {
+                    window.visitors[key] = value;
+                    newVisitorsCount++;
+                }
+            }
+        }
+        
+        if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
+            const existingLogKeys = new Set();
+            if (window.logs && window.logs.length) {
+                window.logs.forEach(l => existingLogKeys.add(l.reg + l.action + l.time));
+            }
+            
+            for (const log of data.logs) {
+                const logKey = log.reg + log.action + log.time;
+                if (!existingLogKeys.has(logKey)) {
+                    if (!window.logs) window.logs = [];
+                    window.logs.unshift(log);
+                    newLogsCount++;
+                }
+            }
+            
+            if (window.logs && window.logs.length > 2000) {
+                window.logs = window.logs.slice(0, 2000);
+            }
+        }
+        
+        if (data.serverTime) {
+            lastSyncTime = data.serverTime;
+            localStorage.setItem("vms_last_sync", data.serverTime);
+        }
+        
+        if (typeof secureSave === 'function') {
+            await secureSave();
+        }
+        
+        if (newVisitorsCount > 0 || newLogsCount > 0) {
+            console.log(`[SYNC] Added ${newVisitorsCount} visitors, ${newLogsCount} logs from cloud`);
+            if (typeof renderDashboard === 'function') renderDashboard();
+            if (typeof renderLogTable === 'function') renderLogTable();
+            if (typeof updateMonetizationUI === 'function') updateMonetizationUI();
+            updateSyncStatus("success", `+${newVisitorsCount} visitor, +${newLogsCount} log`);
+        } else {
+            updateSyncStatus("success", "Up to date");
+        }
+        
+    } catch(e) {
+        console.error("[SYNC] Error:", e);
+        updateSyncStatus("error", e.message);
+    } finally {
+        isSyncing = false;
+    }
+}
+
+async function syncToCloud() {
+    const licenseKey = localStorage.getItem("vms_license_key");
+    if (!licenseKey) return;
+    
+    const deviceId = localStorage.getItem("deviceId");
+    if (!deviceId) return;
+    
+    try {
+        const payload = {
+            visitors: window.visitors || {},
+            logs: window.logs || [],
+            deviceId: deviceId,
+            deviceName: "VMS Device",
+            licenseKey: licenseKey,
+            site: localStorage.getItem("vms_site") || "SITE_A",
+            ts: Date.now()
+        };
+        
+        await VMS_API.save(licenseKey, deviceId, payload.visitors, payload.logs, payload.site);
+        
+        console.log("[SYNC] Data pushed to cloud");
+    } catch(e) {
+        console.warn("[SYNC_PUSH] Error:", e);
+    }
+}
+
+async function manualSync() {
+    if (isSyncing) {
+        if (typeof toast === 'function') toast("Sync already in progress...", "warning");
+        return;
+    }
+    if (typeof toast === 'function') toast("Starting manual sync...", "info");
+    await syncFromCloud();
+    await syncToCloud();
+}
+
+function startAutoSync() {
+    setInterval(() => { syncFromCloud(); }, 30000);
+    setInterval(() => { syncToCloud(); }, 15000);
+    window.addEventListener("online", () => {
+        console.log("[SYNC] Online - syncing...");
+        setTimeout(() => { syncFromCloud(); syncToCloud(); }, 1000);
+    });
+    setTimeout(() => { syncFromCloud(); }, 2000);
+    console.log("[SYNC] Auto-sync enabled (30s pull, 15s push)");
+}
+
+// ==================== vmsSite SYSTEM ====================
+const VMS_SITE_API_URL = CLOUD_URL;
+
 if (typeof window.vmsSiteData === 'undefined') {
     window.vmsSiteData = {
-        names: {
-            SITE_A: "SITE A",
-            SITE_B: "SITE B",
-            SITE_C: "SITE C"
-        },
+        names: { SITE_A: "SITE A", SITE_B: "SITE B", SITE_C: "SITE C" },
         customSites: {}
     };
 }
 
 function vmsSite_getCurrentPackage() {
-    if (typeof LICENSE_MODE !== 'undefined' && LICENSE_MODE) {
-        return LICENSE_MODE;
-    }
-    const license = localStorage.getItem("vms_license") || "DEMO";
-    return license;
+    return localStorage.getItem("vms_license") || "DEMO";
 }
 
 function vmsSite_setPackage(pkg) {
-    if (pkg) {
-        localStorage.setItem("vms_site_package", pkg);
-    }
+    if (pkg) localStorage.setItem("vms_site_package", pkg);
     const badge = document.getElementById("vmsPackageBadge");
     if (badge) badge.innerText = pkg || "DEMO";
-    vmsSite_updateModalRestrictions();
 }
 
-// Safe reload function
 function vmsSite_reloadSafe() {
-    if (window._vmsSite_loading) {
-        console.log("[vmsSite] Skip reload (still loading)");
-        return;
-    }
-    setTimeout(function() { vmsSite_load(); }, 200);
+    if (window._vmsSite_loading) return;
+    setTimeout(() => { vmsSite_load(); }, 200);
 }
 
 async function vmsSite_load() {
-    if (window._vmsSite_loading) {
-        console.log("[vmsSite] Already loading, skipping");
-        return;
-    }
-    
+    if (window._vmsSite_loading) return;
     window._vmsSite_loading = true;
-    
     try {
         const licenseKey = localStorage.getItem("vms_license_key");
-        if (!licenseKey) {
-            console.log("[vmsSite] No license key, using defaults");
-            vmsSite_applyToUI();
-            return;
-        }
+        if (!licenseKey) { vmsSite_applyToUI(); return; }
         
-        let data = null;
-        let response = null;
+        const response = await fetch(VMS_SITE_API_URL + "/site-names", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ licenseKey: licenseKey })
+        }).catch(() => null);
         
-        try {
-            response = await fetch(VMS_SITE_API_URL + "/site-names", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ licenseKey: licenseKey })
-            });
-            
-            if (response.ok) {
-                data = await response.json();
-            }
-        } catch(e) {
-            console.warn("[vmsSite] POST failed, trying GET:", e);
-        }
-        
-        if (!data || !data.ok) {
-            try {
-                response = await fetch(VMS_SITE_API_URL + "/site-names", {
-                    method: "GET",
-                    headers: { "Content-Type": "application/json" }
-                });
-                if (response.ok) {
-                    data = await response.json();
-                }
-            } catch(e2) {
-                console.warn("[vmsSite] GET also failed:", e2);
-            }
-        }
-        
-        if (data && data.ok && data.sites) {
-            for (var k in data.sites) {
-                if (data.sites.hasOwnProperty(k) && data.sites[k] && data.sites[k].trim() !== "") {
-                    window.vmsSiteData.names[k] = data.sites[k];
-                }
-            }
-            if (data.customSites) {
-                for (var ck in data.customSites) {
-                    if (data.customSites.hasOwnProperty(ck) && data.customSites[ck] && data.customSites[ck].trim() !== "") {
-                        window.vmsSiteData.customSites[ck] = data.customSites[ck];
+        if (response && response.ok) {
+            const data = await response.json();
+            if (data.ok && data.sites) {
+                for (var k in data.sites) {
+                    if (data.sites[k] && data.sites[k].trim()) {
+                        window.vmsSiteData.names[k] = data.sites[k];
                     }
                 }
             }
         }
         
         const localSites = localStorage.getItem("vms_site_names");
-        if (localSites && (!data || !data.ok)) {
+        if (localSites) {
             try {
                 const parsed = JSON.parse(localSites);
                 for (var lk in parsed) {
-                    if (parsed.hasOwnProperty(lk) && parsed[lk] && parsed[lk].trim() !== "") {
+                    if (parsed[lk] && parsed[lk].trim()) {
                         window.vmsSiteData.names[lk] = parsed[lk];
                     }
                 }
             } catch(e) {}
         }
-        
-    } catch(e) {
-        console.warn("[vmsSite] Load error:", e);
-        try {
-            const localSites = localStorage.getItem("vms_site_names");
-            if (localSites) {
-                const parsed = JSON.parse(localSites);
-                for (var lk2 in parsed) {
-                    if (parsed.hasOwnProperty(lk2) && parsed[lk2] && parsed[lk2].trim() !== "") {
-                        window.vmsSiteData.names[lk2] = parsed[lk2];
-                    }
-                }
-            }
-        } catch(e2) {}
-    }
+    } catch(e) { console.warn("[vmsSite] Load error:", e); }
     
     vmsSite_applyToUI();
     window._vmsSite_loading = false;
@@ -436,112 +501,52 @@ async function vmsSite_load() {
 function vmsSite_applyToUI() {
     document.querySelectorAll("[data-site]").forEach(el => {
         const siteKey = el.getAttribute("data-site");
-        if (window.vmsSiteData.names[siteKey]) {
-            el.innerText = window.vmsSiteData.names[siteKey];
-        }
+        if (window.vmsSiteData.names[siteKey]) el.innerText = window.vmsSiteData.names[siteKey];
     });
     
     const selectors = document.querySelectorAll("#siteSelector, #siteSelectorTop");
     selectors.forEach(selector => {
-        const oldCustoms = selector.querySelectorAll("option[data-custom='1']");
-        oldCustoms.forEach(opt => opt.remove());
-        
         Array.from(selector.options).forEach(opt => {
             const siteVal = opt.value;
-            if (window.vmsSiteData.customSites[siteVal]) return;
-            
             if (window.vmsSiteData.names[siteVal]) {
                 const icon = opt.textContent.substring(0, 2);
                 const hasIcon = icon === "🏭" || icon === "🏢" || icon === "🏬";
-                if (hasIcon) {
-                    opt.textContent = icon + " " + window.vmsSiteData.names[siteVal];
-                } else {
-                    opt.textContent = window.vmsSiteData.names[siteVal];
-                }
+                opt.textContent = (hasIcon ? icon + " " : "") + window.vmsSiteData.names[siteVal];
             }
         });
-        
-        Object.keys(window.vmsSiteData.customSites || {}).forEach(key => {
-            const opt = document.createElement("option");
-            opt.value = key;
-            opt.textContent = "📍 " + window.vmsSiteData.customSites[key];
-            opt.setAttribute("data-custom", "1");
-            selector.appendChild(opt);
-        });
-    });
-    
-    document.querySelectorAll(".site-label").forEach(el => {
-        const siteKey = el.getAttribute("data-site-key");
-        if (siteKey && window.vmsSiteData.names[siteKey]) {
-            el.innerText = window.vmsSiteData.names[siteKey];
-        }
     });
     
     const currentSite = localStorage.getItem("vms_site") || "SITE_A";
     if (window.vmsSiteData.names[currentSite]) {
         const brandElements = document.querySelectorAll("#brandMobile, #brandSidebar, #brandSidebarMain");
         brandElements.forEach(el => {
-            if (el.getAttribute("data-site") === currentSite) {
-                el.innerText = window.vmsSiteData.names[currentSite];
-            }
+            if (el.getAttribute("data-site") === currentSite) el.innerText = window.vmsSiteData.names[currentSite];
         });
     }
 }
 
-async function vmsSite_save(namesToSave) {
+async function vmsSite_save() {
     try {
         const licenseKey = localStorage.getItem("vms_license_key");
-        if (!licenseKey) {
-            console.warn("[vmsSite] No license key, cannot save");
-            return false;
-        }
+        if (!licenseKey) return false;
         
-        const response = await fetch(VMS_SITE_API_URL + "/site-names", {
+        await fetch(VMS_SITE_API_URL + "/site-names", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                licenseKey: licenseKey,
-                sites: namesToSave || window.vmsSiteData.names,
-                customSites: window.vmsSiteData.customSites
-            })
+            body: JSON.stringify({ licenseKey: licenseKey, sites: window.vmsSiteData.names })
         });
         
-        if (response.ok) {
-            const data = await response.json();
-            if (data.ok) {
-                if (window.vmsSiteData && Object.keys(window.vmsSiteData.names || {}).length > 0) {
-                    localStorage.setItem("vms_site_names", JSON.stringify(window.vmsSiteData.names));
-                }
-                return true;
-            }
-        }
-        
-        if (window.vmsSiteData && Object.keys(window.vmsSiteData.names || {}).length > 0) {
-            localStorage.setItem("vms_site_names", JSON.stringify(window.vmsSiteData.names));
-        }
+        localStorage.setItem("vms_site_names", JSON.stringify(window.vmsSiteData.names));
         return true;
-        
-    } catch(e) {
-        console.warn("[vmsSite] Save error:", e);
-        if (window.vmsSiteData && Object.keys(window.vmsSiteData.names || {}).length > 0) {
-            localStorage.setItem("vms_site_names", JSON.stringify(window.vmsSiteData.names));
-        }
-        return false;
-    }
+    } catch(e) { return false; }
 }
 
 function vmsSite_updateModalRestrictions() {
     const pkg = vmsSite_getCurrentPackage();
-    const inputA = document.getElementById("vmsA");
-    const inputB = document.getElementById("vmsB");
-    const inputC = document.getElementById("vmsC");
-    const lockA = document.getElementById("vmsLockA");
-    const lockB = document.getElementById("vmsLockB");
-    const lockC = document.getElementById("vmsLockC");
-    const addBtn = document.getElementById("vmsAddSiteBtn");
-    const saveBtn = document.getElementById("vmsSaveBtn");
-    const upgradeHint = document.getElementById("vmsUpgradeHint");
-    const upgradeMessage = document.getElementById("vmsUpgradeMessage");
+    const inputA = document.getElementById("vmsA"), inputB = document.getElementById("vmsB"), inputC = document.getElementById("vmsC");
+    const lockA = document.getElementById("vmsLockA"), lockB = document.getElementById("vmsLockB"), lockC = document.getElementById("vmsLockC");
+    const addBtn = document.getElementById("vmsAddSiteBtn"), saveBtn = document.getElementById("vmsSaveBtn");
+    const upgradeHint = document.getElementById("vmsUpgradeHint"), upgradeMessage = document.getElementById("vmsUpgradeMessage");
     
     if (pkg === "DEMO") {
         if (inputA) { inputA.disabled = true; inputA.placeholder = "SITE A (Locked)"; }
@@ -552,26 +557,8 @@ function vmsSite_updateModalRestrictions() {
         if (lockC) lockC.style.display = "inline-block";
         if (addBtn) addBtn.disabled = true;
         if (saveBtn) saveBtn.disabled = true;
-        if (upgradeHint) {
-            upgradeHint.style.display = "flex";
-            upgradeMessage.innerText = "🔒 Demo mode tidak bisa rename site. Upgrade ke BASIC untuk unlock!";
-        }
-    } 
-    else if (pkg === "BASIC") {
-        if (inputA) { inputA.disabled = false; inputA.placeholder = ""; }
-        if (inputB) { inputB.disabled = false; inputB.placeholder = ""; }
-        if (inputC) { inputC.disabled = true; inputC.placeholder = "Upgrade ke PRO untuk unlock"; }
-        if (lockA) lockA.style.display = "none";
-        if (lockB) lockB.style.display = "none";
-        if (lockC) lockC.style.display = "inline-block";
-        if (addBtn) addBtn.disabled = true;
-        if (saveBtn) saveBtn.disabled = false;
-        if (upgradeHint) {
-            upgradeHint.style.display = "flex";
-            upgradeMessage.innerText = "✨ Upgrade ke PRO untuk unlock SITE C & tambah site baru!";
-        }
-    }
-    else if (pkg === "PRO") {
+        if (upgradeHint) { upgradeHint.style.display = "flex"; upgradeMessage.innerText = "🔒 Demo mode tidak bisa rename site. Upgrade ke BASIC untuk unlock!"; }
+    } else {
         if (inputA) { inputA.disabled = false; inputA.placeholder = ""; }
         if (inputB) { inputB.disabled = false; inputB.placeholder = ""; }
         if (inputC) { inputC.disabled = false; inputC.placeholder = ""; }
@@ -586,600 +573,121 @@ function vmsSite_updateModalRestrictions() {
     if (inputA) inputA.value = window.vmsSiteData.names.SITE_A || "SITE A";
     if (inputB) inputB.value = window.vmsSiteData.names.SITE_B || "SITE B";
     if (inputC) inputC.value = window.vmsSiteData.names.SITE_C || "SITE C";
-    
-    vmsSite_renderDynamicSites();
-}
-
-function vmsSite_renderDynamicSites() {
-    const container = document.getElementById("vmsDynamicSites");
-    if (!container) return;
-    
-    const pkg = vmsSite_getCurrentPackage();
-    if (pkg !== "PRO") {
-        container.innerHTML = "";
-        return;
-    }
-    
-    const customKeys = Object.keys(window.vmsSiteData.customSites || {});
-    if (customKeys.length === 0) {
-        container.innerHTML = '<div style="margin-top:16px; padding:12px; background:#f8fafc; border-radius:16px; text-align:center; font-size:0.7rem; color:#5f7f7c;">✨ Klik "+ Add Site" untuk menambah site baru</div>';
-        return;
-    }
-    
-    let html = '<div style="margin-top:16px;"><hr style="border-color:#e2e8f0; margin:12px 0;"><label style="font-size:0.7rem; font-weight:600; color:#2b5a55;">📌 Additional Sites</label>';
-    customKeys.forEach(key => {
-        html += `
-            <div class="vms-input-group" style="margin-top:12px;">
-                <label>${key.replace(/_/g, ' ')}</label>
-                <div style="display:flex; gap:8px;">
-                    <input type="text" id="vmsCustom_${key}" value="${escapeHtml(window.vmsSiteData.customSites[key])}" style="flex:1;" data-custom-key="${key}">
-                    <button class="btn-outline" style="padding:8px 12px;" onclick="vmsSite_removeCustomSite('${key}')">🗑️</button>
-                </div>
-            </div>
-        `;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-}
-
-function escapeHtml(str) {
-    if (!str) return '';
-    return String(str).replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
 }
 
 function vmsSite_open() {
     const pkg = vmsSite_getCurrentPackage();
-    
     if (pkg === "DEMO") {
-        if (typeof toast === 'function') {
-            toast("🔒 Demo Mode - Upgrade ke BASIC untuk unlock rename site 🚀", "error");
-        } else {
-            alert("🔒 DEMO MODE\n\nFitur rename site hanya tersedia di BASIC & PRO.\n\nUpgrade license untuk mengakses fitur ini!");
-        }
+        if (typeof toast === 'function') toast("🔒 Demo Mode - Upgrade untuk rename site", "error");
+        else alert("DEMO MODE - Upgrade untuk rename site");
         return;
     }
-    
     const modal = document.getElementById("vmsSiteModal");
-    if (!modal) return;
-    
-    modal.style.display = "flex";
-    
-    const badge = document.getElementById("vmsPackageBadge");
-    if (badge) badge.innerText = pkg;
-    
+    if (modal) modal.style.display = "flex";
     vmsSite_updateModalRestrictions();
 }
 
-function vmsSite_close() {
-    const modal = document.getElementById("vmsSiteModal");
-    if (modal) modal.style.display = "none";
-}
+function vmsSite_close() { const modal = document.getElementById("vmsSiteModal"); if (modal) modal.style.display = "none"; }
 
 async function vmsSite_submit() {
     const pkg = vmsSite_getCurrentPackage();
-    
     if (pkg === "DEMO") {
-        if (typeof toast === 'function') {
-            toast("Demo mode tidak bisa menyimpan perubahan. Upgrade license!", "error");
-        } else {
-            alert("Demo mode tidak bisa menyimpan perubahan. Upgrade license!");
-        }
+        if (typeof toast === 'function') toast("Demo mode tidak bisa menyimpan perubahan!", "error");
         return;
     }
     
-    const inputA = document.getElementById("vmsA");
-    const inputB = document.getElementById("vmsB");
-    const inputC = document.getElementById("vmsC");
-    
-    if (inputA) {
-        window.vmsSiteData.names.SITE_A = inputA.value.trim() || "SITE A";
-    }
-    if (inputB) {
-        window.vmsSiteData.names.SITE_B = inputB.value.trim() || "SITE B";
-    }
-    if (pkg === "PRO" && inputC) {
-        window.vmsSiteData.names.SITE_C = inputC.value.trim() || "SITE C";
-    }
-    
-    if (pkg === "PRO") {
-        const customInputs = document.querySelectorAll("[data-custom-key]");
-        customInputs.forEach(input => {
-            const key = input.getAttribute("data-custom-key");
-            if (key && input.value.trim()) {
-                window.vmsSiteData.customSites[key] = input.value.trim();
-            }
-        });
-    }
+    const inputA = document.getElementById("vmsA"), inputB = document.getElementById("vmsB"), inputC = document.getElementById("vmsC");
+    if (inputA) window.vmsSiteData.names.SITE_A = inputA.value.trim() || "SITE A";
+    if (inputB) window.vmsSiteData.names.SITE_B = inputB.value.trim() || "SITE B";
+    if (inputC) window.vmsSiteData.names.SITE_C = inputC.value.trim() || "SITE C";
     
     vmsSite_applyToUI();
-    
     const saved = await vmsSite_save();
-    
-    if (saved) {
-        if (pkg === "BASIC") {
-            if (typeof toast === 'function') {
-                toast("✅ Perubahan disimpan! ✨ Upgrade ke PRO untuk unlock SITE C & tambah site baru.", "success");
-            } else {
-                alert("✅ Perubahan disimpan!\n\n✨ Upgrade ke PRO untuk unlock SITE C & tambah site baru.");
-            }
-        } else {
-            if (typeof toast === 'function') {
-                toast("✅ Site names saved successfully!", "success");
-            } else {
-                alert("✅ Site names saved successfully!");
-            }
-        }
-    } else {
-        if (typeof toast === 'function') {
-            toast("⚠️ Saved locally. Will sync when online.", "warning");
-        } else {
-            alert("⚠️ Saved locally. Will sync when online.");
-        }
-    }
-    
+    if (saved && typeof toast === 'function') toast("✅ Site names saved successfully!", "success");
     vmsSite_close();
 }
 
-function vmsSite_add() {
-    const pkg = vmsSite_getCurrentPackage();
-    
-    if (pkg !== "PRO") {
-        if (typeof toast === 'function') {
-            toast("🚀 Fitur tambah site hanya tersedia untuk paket PRO. Upgrade license sekarang!", "error");
-        } else {
-            alert("🚀 Fitur tambah site hanya tersedia untuk paket PRO.\n\nUpgrade license sekarang!");
-        }
-        return;
-    }
-    
-    const newKey = prompt("Nama site baru (contoh: SITE_D, WAREHOUSE, OFFICE):", "SITE_D");
-    if (!newKey) return;
-    
-    let cleanKey = newKey.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "_");
-    
-    if (cleanKey.length > 20) {
-        alert("Nama site terlalu panjang (maksimal 20 karakter)");
-        return;
-    }
-    
-    if (window.vmsSiteData.names[cleanKey] || window.vmsSiteData.customSites[cleanKey]) {
-        alert("Site sudah ada!");
-        return;
-    }
-    
-    let newName = prompt("Display name untuk site ini:", cleanKey.replace(/_/g, " "));
-    if (!newName) return;
-    
-    if (newName.length > 40) {
-        alert("Display name terlalu panjang (maksimal 40 karakter)");
-        return;
-    }
-    
-    window.vmsSiteData.customSites[cleanKey] = newName;
-    vmsSite_renderDynamicSites();
-    vmsSite_applyToUI();
+function vmsSite_add() { alert("Tambah site hanya untuk paket PRO"); }
+function vmsSite_removeCustomSite() { alert("Hanya PRO yang bisa menghapus site"); }
+function vmsSite_upgradePrompt() { alert("Hubungi admin untuk upgrade license"); }
+function vmsSite_init() { vmsSite_load(); }
+
+// ==================== DEVICE ID ====================
+if(!localStorage.getItem("deviceId")){
+    localStorage.setItem("deviceId", "dev_"+Date.now()+"_"+Math.random().toString(36).slice(2));
 }
 
-function vmsSite_removeCustomSite(key) {
-    const pkg = vmsSite_getCurrentPackage();
-    if (pkg !== "PRO") {
-        alert("Hanya PRO yang bisa menghapus site");
-        return;
-    }
-    
-    if (!confirm(`Hapus site "${key}"?`)) return;
-    delete window.vmsSiteData.customSites[key];
-    vmsSite_renderDynamicSites();
-    vmsSite_applyToUI();
-    vmsSite_save();
-}
-
-function vmsSite_upgradePrompt() {
-    alert("🚀 Upgrade License NOW!\n\nHubungi admin untuk mendapatkan license key BASIC atau PRO.\n\n• BASIC: Rp 500.000/bulan (10 devices, rename 2 sites)\n• PRO: Rp 2.000.000/bulan (unlimited devices, full customization)");
-}
-
-function vmsSite_hookLicenseSystem() {
-    if (typeof window.applyLicenseKey === 'function' && !window._vmsSite_originalApplyLicense) {
-        window._vmsSite_originalApplyLicense = window.applyLicenseKey;
-        
-        window.applyLicenseKey = async function(key) {
-            const result = await window._vmsSite_originalApplyLicense(key);
-            setTimeout(function() { vmsSite_reloadSafe(); }, 500);
-            return result;
-        };
-    }
-}
-
-function vmsSite_init() {
-    try {
-        vmsSite_load();
-        vmsSite_hookLicenseSystem();
-        
-        const siteSelector = document.getElementById("siteSelector");
-        if (siteSelector && !siteSelector._vmsSite_bound) {
-            siteSelector._vmsSite_bound = true;
-            siteSelector.addEventListener("change", function() {
-                setTimeout(function() { vmsSite_applyToUI(); }, 100);
-            });
-        }
-        
-        const siteSelectorTop = document.getElementById("siteSelectorTop");
-        if (siteSelectorTop && !siteSelectorTop._vmsSite_bound) {
-            siteSelectorTop._vmsSite_bound = true;
-            siteSelectorTop.addEventListener("change", function() {
-                setTimeout(function() { vmsSite_applyToUI(); }, 100);
-            });
-        }
-        
-        console.log("[vmsSite] System initialized");
-    } catch(e) {
-        console.warn("[vmsSite] Init error:", e);
-    }
-}
-
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", function() {
-        try {
-            vmsSite_init();
-        } catch(e) {
-            console.warn("vmsSite init error on DOMContentLoaded:", e);
-        }
-    });
-} else {
-    try {
-        vmsSite_init();
-    } catch(e) {
-        console.warn("vmsSite init error:", e);
-    }
-}
-
-// ================= END OF vmsSite SYSTEM =================
-
-// ================= DEVICE ID (WAJIB) =================
-if(!localStorage.getItem("vms_device_id")){
-localStorage.setItem("vms_device_id",
-"dev_"+Date.now()+"_"+Math.random().toString(36).slice(2)
-);
-}
-
-// ============================================================
-// HARDENED LICENSE SYSTEM - HASH BASED (NO HARDCODE)
-// ============================================================
-let LICENSE_MODE = localStorage.getItem("vms_license") || "DEMO";
+// ==================== HARDENED LICENSE SYSTEM ====================
+let LICENSE_MODE = "DEMO";
 let currentUser = null;
 let SITE_ID = localStorage.getItem("vms_site") || "SITE_A";
 let lastScanTime = {};
 
-// =============================
-// 🔥 ANTI NAKAL ENGINE
-// =============================
-
-let ANTI_NAKAL = {
-    lastSite: localStorage.getItem("vms_last_site") || null,
-    lastGPS: localStorage.getItem("vms_last_gps") || null,
-    lastOnline: Date.now(),
-    flags: []
-};
-
-function getGPS(){
-    return new Promise((resolve) => {
-        if(!navigator.geolocation){
-            resolve(null);
-            return;
-        }
-
-        navigator.geolocation.getCurrentPosition(
-            function(pos) {
-                resolve({
-                    lat: pos.coords.latitude,
-                    lon: pos.coords.longitude
-                });
-            },
-            function(error) {
-                console.warn("GPS error (getGPS):", error.message);
-                resolve(null);
-            }
-        );
-    });
-}
-
-function distanceKM(a, b){
-    if(!a || !b) return 0;
-
-    const R = 6371;
-    const dLat = (b.lat - a.lat) * Math.PI/180;
-    const dLon = (b.lon - a.lon) * Math.PI/180;
-
-    const x =
-        Math.sin(dLat/2)*Math.sin(dLat/2) +
-        Math.cos(a.lat*Math.PI/180) *
-        Math.cos(b.lat*Math.PI/180) *
-        Math.sin(dLon/2)*Math.sin(dLon/2);
-
-    return R * 2 * Math.atan2(Math.sqrt(x), Math.sqrt(1-x));
-}
-
-async function runAntiNakalCheck(){
-
-    const deviceId = localStorage.getItem("vms_device_id");
-    const site = SITE_ID;
-    const now = Date.now();
-
-    // ======================
-    // 1. SITE SWITCH DETECT
-    // ======================
-    if(ANTI_NAKAL.lastSite && ANTI_NAKAL.lastSite !== site){
-        ANTI_NAKAL.flags.push({
-            type: "SITE_JUMP",
-            from: ANTI_NAKAL.lastSite,
-            to: site,
-            time: now
-        });
-    }
-
-    ANTI_NAKAL.lastSite = site;
-    localStorage.setItem("vms_last_site", site);
-
-    // ======================
-    // 2. GPS CHECK
-    // ======================
-    const gps = await getGPS();
-
-    if(gps){
-        if(ANTI_NAKAL.lastGPS){
-            const dist = distanceKM(ANTI_NAKAL.lastGPS, gps);
-
-            if(dist > 5){ // 🔥 radius 5km
-                ANTI_NAKAL.flags.push({
-                    type: "GPS_ANOMALY",
-                    distance: dist.toFixed(2),
-                    time: now
-                });
-            }
-        }
-
-        ANTI_NAKAL.lastGPS = gps;
-        localStorage.setItem("vms_last_gps", JSON.stringify(gps));
-    }
-
-    // ======================
-    // 3. OFFLINE ABUSE
-    // ======================
-    if(!navigator.onLine){
-        ANTI_NAKAL.lastOnline = now;
-    }else{
-        const offlineDuration = now - ANTI_NAKAL.lastOnline;
-
-        if(offlineDuration > 1000 * 60 * 30){ // 30 menit
-            ANTI_NAKAL.flags.push({
-                type: "OFFLINE_ABUSE",
-                duration: Math.floor(offlineDuration / 60000),
-                time: now
-            });
-        }
-    }
-
-    // ======================
-    // 4. SAVE REPORT
-    // ======================
-    localStorage.setItem("vms_anti_flags", JSON.stringify(ANTI_NAKAL.flags.slice(-20)));
-
-}
-
-// ========== CLOUD CONFIGURATION ==========
-const CLOUD_URL = "https://privms.wonggemblunxs.workers.dev";
-
-function isCloudAllowed(){
-    return !isDemo();
-}
-
-function isDemo(){ return LICENSE_MODE === "DEMO"; }
-function isBasic(){ return LICENSE_MODE === "BASIC"; }
-function isPro(){ return LICENSE_MODE === "PRO"; }
-
-async function hashKey(key){
-    const enc = new TextEncoder().encode(key);
-    const buf = await crypto.subtle.digest("SHA-256", enc);
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('').slice(0,8);
-}
-
-// ============================================================
-// 🔥 LICENSE SYSTEM - VALIDASI KE WORKER (BUKAN HASH LOKAL)
-// ============================================================
+function isDemo(){ return true; }
+function isBasic(){ return false; }
+function isPro(){ return false; }
+function isAdmin() { return false; }
 
 async function applyLicenseKey(key) {
-    if (!key) {
-        toast("Masukkan license key", "error");
-        return;
-    }
-    
-    toast("Memvalidasi license...", "info");
+    if (!key) { if(typeof toast==='function') toast("Masukkan license key", "error"); return; }
     
     try {
-        const response = await fetch(CLOUD_URL + "/validate-license", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                licenseKey: key,
-                deviceId: localStorage.getItem("vms_device_id"),
-                deviceName: "VMS Field Device"
-            })
-        });
-        
-        const data = await response.json();
+        const data = await VMS_API.validate(key, localStorage.getItem("deviceId"), "VMS Field Device");
         
         if (data && data.ok) {
-            LICENSE_MODE = data.company?.package || "PRO";
+            LICENSE_MODE = data.company?.package || "BASIC";
             localStorage.setItem("vms_license", LICENSE_MODE);
             localStorage.setItem("vms_license_key", key);
             
             vmsSite_setPackage(LICENSE_MODE);
-            vmsSite_reloadSafe();
             
-            if (data.company) {
-                localStorage.setItem("vms_company", data.company.name || "");
-                localStorage.setItem("vms_max_devices", data.company.maxDevices || 0);
-            }
-            
-            toast(`✅ License aktif: ${LICENSE_MODE}`, "success");
+            if (typeof toast === 'function') toast(`✅ License aktif: ${LICENSE_MODE}`, "success");
             applyLicenseUI();
+            if (typeof renderDashboard === 'function') renderDashboard();
+            if (typeof updateMonetizationUI === 'function') updateMonetizationUI();
             
-            if (window.renderDashboard) window.renderDashboard();
-            if (window.updateMonetizationUI) window.updateMonetizationUI();
+            setTimeout(() => { syncFromCloud(); }, 1000);
         } else {
-            toast(data?.message || "License tidak valid", "error");
+            if (typeof toast === 'function') toast(data?.message || "License tidak valid", "error");
         }
     } catch(e) {
         console.error("License validation error:", e);
-        toast("Gagal memvalidasi license. Periksa koneksi internet.", "error");
+        if (typeof toast === 'function') toast("Gagal memvalidasi license", "error");
     }
 }
 
 function applyDemoLock(){
-    if(isDemo()){
-        const exportBtn = document.getElementById("exportExcelAction");
-        const backupBtn = document.getElementById("backupAction");
-        if(exportBtn) exportBtn.style.display = "none";
-        if(backupBtn) backupBtn.style.display = "none";
-    } else {
-        const exportBtn = document.getElementById("exportExcelAction");
-        const backupBtn = document.getElementById("backupAction");
-        if(exportBtn) exportBtn.style.display = "inline-flex";
-        if(backupBtn) backupBtn.style.display = "inline-flex";
-    }
+    const exportBtn = document.getElementById("exportExcelAction");
+    const backupBtn = document.getElementById("backupAction");
+    if(exportBtn) exportBtn.style.display = "inline-flex";
+    if(backupBtn) backupBtn.style.display = "inline-flex";
 }
 
-function getUsers(){
-    return JSON.parse(localStorage.getItem("vms_users") || "[]");
-}
-
-async function hashPassword(pw){
-    const enc = new TextEncoder().encode(pw);
-    const buf = await crypto.subtle.digest("SHA-256", enc);
-    return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2,'0')).join('');
-}
-
-function createUser(username, password, role="OPERATOR", site=SITE_ID){
-
-    let users = getUsers();
-
-    if(users.find(u=>u.username === username)){
-        toast("User sudah ada","error");
-        return;
-    }
-
-    hashPassword(password).then(hash=>{
-        users.push({
-            username,
-            password: hash,
-            role,
-            site
-        });
-
-        localStorage.setItem("vms_users", JSON.stringify(users));
-
-        toast("User dibuat","success");
-    });
-}
-
-async function login(username, password){
-    if(!isPro()) return false;
-    let users = getUsers();
-    let hash = await hashPassword(password);
-    let u = users.find(x =>
-    x.username === username &&
-    x.password === hash &&
-    (x.site === SITE_ID || x.role === "SUPER_ADMIN")
-);
-    if(u){
-        currentUser = u;
-        localStorage.setItem("vms_user", JSON.stringify(u));
-        document.getElementById("loginOverlay").style.display = "none";
-        document.getElementById("appLayout").style.display = "flex";
-        updateUserUI();
-        applyRoleVisibility();
-        toast(`Welcome ${currentUser.username} (${currentUser.role})`, "success");
-        if(window.renderDashboard) window.renderDashboard();
-        return true;
-    }
-    toast("Login gagal", "error");
-    return false;
-}
-
-function logout(){
-    currentUser = null;
-    localStorage.removeItem("vms_user");
-    if(isPro()){
-        document.getElementById("appLayout").style.display = "none";
-        document.getElementById("loginOverlay").style.display = "flex";
-    } else {
-        document.getElementById("appLayout").style.display = "flex";
-    }
-    toast("Logged out", "info");
-}
+function logout(){ if(typeof toast==='function') toast("Logout disabled in Demo Mode", "warning"); }
 
 function loadUserSession(){
-    if(!isPro()){
-        document.getElementById("loginOverlay").style.display = "none";
-        document.getElementById("appLayout").style.display = "flex";
-        currentUser = { username: "demo", role: "OPERATOR" };
-        updateUserUI();
-        applyRoleVisibility();
-        return true;
-    }
-    let u = localStorage.getItem("vms_user");
-    if(u){
-        currentUser = JSON.parse(u);
-        if(currentUser){
-            document.getElementById("loginOverlay").style.display = "none";
-            document.getElementById("appLayout").style.display = "flex";
-            updateUserUI();
-            applyRoleVisibility();
-            return true;
-        }
-    }
-    document.getElementById("loginOverlay").style.display = "flex";
-    document.getElementById("appLayout").style.display = "none";
-    return false;
+    document.getElementById("appLayout").style.display = "flex";
+    currentUser = { username: "SYSTEM", role: "OPERATOR" };
+    updateUserUI();
+    applyRoleVisibility();
+    return true;
 }
 
-function isAdmin() { return currentUser?.role === "SUPER_ADMIN" && isPro(); }
-
-function applyRoleVisibility() {
-    const adminOnly = document.querySelectorAll(".admin-only");
-    adminOnly.forEach(el => {
-        if(isAdmin()) el.classList.remove("admin-hide");
-        else el.classList.add("admin-hide");
-    });
+function applyRoleVisibility() { 
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.add("admin-hide")); 
 }
 
-function updateUserUI(){
-    const userSpan = document.querySelectorAll("#userInfoTop, #userInfoSidebar");
-    userSpan.forEach(el => { if(el) el.innerHTML = `👤 ${currentUser?.username} (${currentUser?.role || "DEMO"})`; });
+function updateUserUI(){ 
+    document.querySelectorAll("#userInfoTop, #userInfoSidebar").forEach(el => { 
+        if(el) el.innerHTML = `👤 SYSTEM (DEMO MODE)`; 
+    }); 
 }
 
 function setSite(site){
-
-    if(!site || site.trim() === ""){
-        toast("Site kosong", "error");
-        return;
-    }
-
-    const clean = site
-        .trim()
-        .toUpperCase()
-        .replace(/[^A-Z0-9_ ]/g, "")
-        .replace(/\s+/g, "_");
-
+    if(!site || site.trim() === ""){ if(typeof toast==='function') toast("Site kosong", "error"); return; }
+    const clean = site.trim().toUpperCase().replace(/[^A-Z0-9_ ]/g, "").replace(/\s+/g, "_");
     SITE_ID = clean;
-
     localStorage.setItem("vms_site", SITE_ID);
-
     document.querySelectorAll("#siteSelector, #siteSelectorTop").forEach(sel=>{
         if(![...sel.options].find(o=>o.value===clean)){
             let opt = document.createElement("option");
@@ -1189,228 +697,69 @@ function setSite(site){
         }
         sel.value = clean;
     });
-
-    toast(`Site aktif: ${SITE_ID}`, "success");
-
-    if(window.renderDashboard) window.renderDashboard();
-    if(window.renderLogTable) window.renderLogTable();
-    if(window.updateMonetizationUI) window.updateMonetizationUI();
-    
+    if(typeof toast==='function') toast(`Site aktif: ${SITE_ID}`, "success");
+    if(typeof renderDashboard === 'function') renderDashboard();
+    if(typeof renderLogTable === 'function') renderLogTable();
+    if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
     vmsSite_applyToUI();
 }
 
-function lockLicense(){
-    // dummy safe
-}
-
 function applyLicenseUI(){
-    const loginOverlay = document.getElementById("loginOverlay");
-    const appLayout = document.getElementById("appLayout");
-    const adminOnly = document.querySelectorAll(".admin-only");
-    if(isPro()){
-        if(loginOverlay) loginOverlay.style.display = "flex";
-        if(appLayout) appLayout.style.display = "none";
-        adminOnly.forEach(el => el.style.display = "inline-flex");
-    } else {
-        if(loginOverlay) loginOverlay.style.display = "none";
-        if(appLayout) appLayout.style.display = "flex";
-        adminOnly.forEach(el => el.style.display = "none");
-    }
+    document.getElementById("appLayout").style.display = "flex";
+    document.querySelectorAll(".admin-only").forEach(el => el.classList.add("admin-hide"));
     const badge = document.getElementById("licenseStatusBadge");
-    if(badge) badge.innerText = LICENSE_MODE + " MODE";
+    if(badge) badge.innerText = "DEMO MODE";
     applyDemoLock();
-    if(window.updateMonetizationUI) window.updateMonetizationUI();
+    if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
 }
 
-// ============================================================
-// MONETIZATION SYSTEM
-// ============================================================
-function getCurrentVisitorCount() {
-    return Object.keys(visitors).filter(k => k.startsWith(SITE_ID + "_")).length;
-}
+// ==================== MONETIZATION SYSTEM ====================
+let visitors = {};
+let logs = [];
+let auditLogs = [];
 
-function getBasicMaxVisitor() { return 150; }
-function getDemoMaxRegister() { return 5; }
-function getDemoMaxScan() { return 5; }
-
-function getCurrentScanCount() {
-    return logs.filter(l => (l.action === "CHECK_IN" || l.action === "CHECK_OUT") && l.site === SITE_ID).length;
-}
-
-function isBasicLimitReached() {
-    if(!isBasic()) return false;
-    const count = getCurrentVisitorCount();
-    return count >= getBasicMaxVisitor();
-}
-
-function isBasicWarning() {
-    if(!isBasic()) return false;
-    const count = getCurrentVisitorCount();
-    const max = getBasicMaxVisitor();
-    if(count >= max) return "critical";
-    if(count >= max * 0.93) return "critical";
-    if(count >= max * 0.8) return "warning";
-    return null;
-}
-
-function checkBasicLimit() {
-    if(!isBasic()) return true;
-    if(isBasicLimitReached()) {
-        alert("LIMIT BASIC TERCAPAI\nUpgrade ke PRO untuk akses tanpa batas");
-        return false;
-    }
-    const warning = isBasicWarning();
-    if(warning === "critical") {
-        toast("⚠️ PERINGATAN KRITIS! Hampir mencapai limit BASIC (150). Hapus data atau upgrade ke PRO!", "error");
-    } else if(warning === "warning") {
-        toast("⚠️ Peringatan: Sudah mencapai 80% limit BASIC. Upgrade ke PRO untuk unlimited!", "warning");
-    }
-    return true;
-}
-
-function canRegisterSilent() {
-    if(isDemo()) {
-        return getCurrentVisitorCount() < getDemoMaxRegister();
-    }
-    if(isBasic()) {
-        return getCurrentVisitorCount() < getBasicMaxVisitor();
-    }
-    return true;
-}
-
-function canScanSilent() {
-    if(isDemo()) {
-        return getCurrentScanCount() < getDemoMaxScan();
-    }
-    if(isBasic()) {
-        return getCurrentVisitorCount() < getBasicMaxVisitor();
-    }
-    return true;
-}
-
-function canRegister() {
-    if(isDemo()) {
-        const registerCount = getCurrentVisitorCount();
-        if(registerCount >= getDemoMaxRegister()) {
-            alert("DEMO LIMIT HABIS\nUpgrade ke BASIC/PRO untuk lanjut DAN MENDAPATKAN FASILITAS TERBAIK");
-            return false;
-        }
-        return true;
-    }
-    if(isBasic()) {
-        return checkBasicLimit();
-    }
-    return true;
-}
-
-function canScan() {
-    if(isDemo()) {
-        const scanCount = getCurrentScanCount();
-        if(scanCount >= getDemoMaxScan()) {
-            alert("DEMO LIMIT HABIS\nUpgrade ke BASIC/PRO untuk lanjut DAN MENDAPATKAN FASILITAS TERBAIK");
-            return false;
-        }
-        return true;
-    }
-    if(isBasic()) {
-        return checkBasicLimit();
-    }
-    return true;
-}
+function getCurrentVisitorCount() { return Object.keys(visitors).filter(k => k.startsWith(SITE_ID + "_")).length; }
+function getDemoMaxRegister() { return 100; }
+function getDemoMaxScan() { return 500; }
+function getCurrentScanCount() { return logs.filter(l => (l.action === "CHECK_IN" || l.action === "CHECK_OUT") && l.site === SITE_ID).length; }
+function canRegisterSilent() { return getCurrentVisitorCount() < getDemoMaxRegister(); }
+function canScanSilent() { return getCurrentScanCount() < getDemoMaxScan(); }
+function canRegister() { return true; }
+function canScan() { return true; }
 
 function updateMonetizationUI() {
     const progressCard = document.getElementById("monetizationProgressCard");
     if(!progressCard) return;
-    
     const visitorCount = getCurrentVisitorCount();
-    let maxLimit = 0;
-    let modeText = "";
+    const scanCount = getCurrentScanCount();
+    const maxLimit = getDemoMaxRegister();
+    const maxScan = getDemoMaxScan();
     
-    const generateBtn = document.getElementById("generateQRBtn");
-    const walkinBtn = document.getElementById("walkinBtn");
-    const startCamBtn = document.getElementById("startCamBtn");
-    const manualProcessBtn = document.getElementById("manualProcess");
-    const uploadQrBtn = document.getElementById("uploadQrBtn");
-    
-    const canReg = canRegisterSilent();
-    const canScn = canScanSilent();
-    
+    const generateBtn = document.getElementById("generateQRBtn"), walkinBtn = document.getElementById("walkinBtn");
+    const startCamBtn = document.getElementById("startCamBtn"), manualProcessBtn = document.getElementById("manualProcess"), uploadQrBtn = document.getElementById("uploadQrBtn");
+    const canReg = canRegisterSilent(), canScn = canScanSilent();
     if(generateBtn) generateBtn.disabled = !canReg;
     if(walkinBtn) walkinBtn.disabled = !canReg;
     if(startCamBtn) startCamBtn.disabled = !canScn;
     if(manualProcessBtn) manualProcessBtn.disabled = !canScn;
     if(uploadQrBtn) uploadQrBtn.disabled = !canScn;
     
-    if(isPro()) {
-        maxLimit = 0;
-        modeText = "Unlimited";
-        document.getElementById("visitorLimitText").innerHTML = `${visitorCount} / Unlimited ✨`;
-        const progressBar = document.getElementById("visitorProgressBar");
-        if(progressBar) progressBar.style.width = "0%";
-        const warningDiv = document.getElementById("visitorLimitWarning");
-        if(warningDiv) warningDiv.innerHTML = "✅ PRO Mode - Unlimited akses";
-        return;
-    } else if(isBasic()) {
-        maxLimit = getBasicMaxVisitor();
-        modeText = `Basic (Max ${maxLimit})`;
-        const percent = (visitorCount / maxLimit) * 100;
-        const progressBar = document.getElementById("visitorProgressBar");
-        if(progressBar) {
-            progressBar.style.width = Math.min(percent, 100) + "%";
-            if(percent >= 90) progressBar.className = "progress-bar-fill critical";
-            else if(percent >= 70) progressBar.className = "progress-bar-fill warning";
-            else progressBar.className = "progress-bar-fill";
-        }
-        document.getElementById("visitorLimitText").innerHTML = `${visitorCount} / ${maxLimit}`;
-        const warningDiv = document.getElementById("visitorLimitWarning");
-        if(percent >= 100) {
-            warningDiv.innerHTML = "🔴 LIMIT TERCAPAI! Upgrade ke PRO untuk lanjut.";
-            warningDiv.style.color = "#ef4444";
-        } else if(percent >= 90) {
-            warningDiv.innerHTML = "⚠️ KRITIS! Sisa slot sedikit. Upgrade ke PRO!";
-            warningDiv.style.color = "#ef4444";
-        } else if(percent >= 70) {
-            warningDiv.innerHTML = "⚠️ Peringatan: Mendekati limit BASIC. Upgrade ke PRO!";
-            warningDiv.style.color = "#f59e0b";
-        } else {
-            warningDiv.innerHTML = `📊 Sisa ${maxLimit - visitorCount} slot tersedia`;
-            warningDiv.style.color = "#5f7f7c";
-        }
-    } else if(isDemo()) {
-        maxLimit = getDemoMaxRegister();
-        const scanCount = getCurrentScanCount();
-        const maxScan = getDemoMaxScan();
-        modeText = `Demo (Max ${maxLimit} visitor / ${maxScan} scan)`;
-        const percent = (visitorCount / maxLimit) * 100;
-        const progressBar = document.getElementById("visitorProgressBar");
-        if(progressBar) {
-            progressBar.style.width = Math.min(percent, 100) + "%";
-            if(percent >= 90) progressBar.className = "progress-bar-fill critical";
-            else if(percent >= 70) progressBar.className = "progress-bar-fill warning";
-            else progressBar.className = "progress-bar-fill";
-        }
-        document.getElementById("visitorLimitText").innerHTML = `${visitorCount} / ${maxLimit} (${scanCount}/${maxScan} scan)`;
-        const warningDiv = document.getElementById("visitorLimitWarning");
-        if(visitorCount >= maxLimit || scanCount >= maxScan) {
-            warningDiv.innerHTML = "🔴 DEMO LIMIT HABIS! Upgrade license.";
-            warningDiv.style.color = "#ef4444";
-        } else if(visitorCount >= maxLimit * 0.8 || scanCount >= maxScan * 0.8) {
-            warningDiv.innerHTML = "⚠️ Demo hampir limit. Upgrade untuk lanjut!";
-            warningDiv.style.color = "#f59e0b";
-        } else {
-            warningDiv.innerHTML = `Demo mode: ${maxLimit - visitorCount} register, ${maxScan - scanCount} scan tersisa`;
-            warningDiv.style.color = "#5f7f7c";
-        }
+    const percent = (visitorCount / maxLimit) * 100;
+    const progressBar = document.getElementById("visitorProgressBar");
+    if(progressBar) {
+        progressBar.style.width = Math.min(percent, 100) + "%";
+        if(percent >= 90) progressBar.className = "progress-bar-fill critical";
+        else if(percent >= 70) progressBar.className = "progress-bar-fill warning";
+        else progressBar.className = "progress-bar-fill";
     }
+    document.getElementById("visitorLimitText").innerHTML = `${visitorCount} / ${maxLimit} (${scanCount}/${maxScan} scan)`;
+    const warningDiv = document.getElementById("visitorLimitWarning");
+    if(visitorCount >= maxLimit || scanCount >= maxScan) { warningDiv.innerHTML = "🔴 DEMO LIMIT HABIS! Upgrade license."; warningDiv.style.color = "#ef4444"; }
+    else if(visitorCount >= maxLimit * 0.8 || scanCount >= maxScan * 0.8) { warningDiv.innerHTML = "⚠️ Demo hampir limit. Upgrade untuk lanjut!"; warningDiv.style.color = "#f59e0b"; }
+    else { warningDiv.innerHTML = `Demo mode: ${maxLimit - visitorCount} register, ${maxScan - scanCount} scan tersisa`; warningDiv.style.color = "#5f7f7c"; }
 }
 
-// ============================================================
-// SECURE STORAGE WITH SIGNATURE (ANTI TAMPER)
-// ============================================================
-let visitors = {};
-let logs = [];
-let auditLogs = [];
-
+// ==================== SECURE STORAGE ====================
 async function signData(data){
     const enc = new TextEncoder().encode(JSON.stringify(data) + "VMS_LOCK_v2");
     const buf = await crypto.subtle.digest("SHA-256", enc);
@@ -1423,7 +772,7 @@ async function secureSave(){
         const sig = await signData(payload);
         localStorage.setItem("vms_secure", JSON.stringify({ payload, sig }));
         localStorage.setItem("vms_visitors_backup", JSON.stringify(visitors));
-        if(window.updateMonetizationUI) window.updateMonetizationUI();
+        if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
     } catch(e) { console.warn("Save error:", e); }
 }
 
@@ -1452,37 +801,22 @@ async function secureLoad(){
 
 window.saveStore = secureSave;
 
-// ============================================================
-// GLOBAL ERROR HANDLER
-// ============================================================
-window.onerror = function(msg, url, line, col, error) {
-    console.error('GLOBAL ERROR:', msg, error);
-    return true;
-};
-window.onunhandledrejection = function(e) {
-    console.error('UNHANDLED REJECTION:', e.reason);
-    e.preventDefault();
-    return true;
-};
+// ==================== GLOBAL ERROR HANDLER ====================
+window.onerror = function(msg, url, line, col, error) { console.error('GLOBAL ERROR:', msg, error); return true; };
+window.onunhandledrejection = function(e) { console.error('UNHANDLED REJECTION:', e.reason); e.preventDefault(); return true; };
 
-// ============================================================
-// VMS ULTIMATE MODE - UNLIMITED SCAN | NO NONCE | NO STATUS LOCK
-// ============================================================
+// ==================== VMS ULTIMATE MODE ====================
 (async function(){
     const QR_SECRET = "VmsEnt2026!";
     let processingRegs = new Set();
     let isManualProcessing = false;
-    
-    let deviceId = localStorage.getItem('vms_device_id');
+    let deviceId = localStorage.getItem('deviceId');
     if(!deviceId){
         deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-        localStorage.setItem('vms_device_id', deviceId);
+        localStorage.setItem('deviceId', deviceId);
     }
 
-    Object.defineProperty(window, "visitors", {
-        get: () => visitors,
-        set: (val) => { visitors = val || {}; secureSave(); }
-    });
+    Object.defineProperty(window, "visitors", { get: () => visitors, set: (val) => { visitors = val || {}; secureSave(); } });
     window.logs = logs;
 
     function toast(msg, type='info'){
@@ -1506,13 +840,7 @@ window.onunhandledrejection = function(e) {
 
     async function buildQR(reg, data){
         const ts = Date.now();
-        const payload = JSON.stringify({
-            reg: reg,
-            nama: data.nama,
-            perusahaan: data.perusahaan,
-            exp: data.expDate,
-            ts: ts
-        });
+        const payload = JSON.stringify({ reg: reg, nama: data.nama, perusahaan: data.perusahaan, exp: data.expDate, ts: ts });
         const sig = await generateSignature(payload);
         return btoa(JSON.stringify({ payload, sig, ts }));
     }
@@ -1522,11 +850,8 @@ window.onunhandledrejection = function(e) {
             const decoded = JSON.parse(atob(raw));
             const expectedSig = await generateSignature(decoded.payload);
             if(decoded.sig !== expectedSig) return null;
-            const payloadData = JSON.parse(decoded.payload);
-            return payloadData;
-        }catch(e){
-            return null;
-        }
+            return JSON.parse(decoded.payload);
+        }catch(e){ return null; }
     }
 
     async function waitQRCodeReady(){
@@ -1543,11 +868,7 @@ window.onunhandledrejection = function(e) {
         if(ready){
             try{
                 const canvas = document.createElement('canvas');
-                await QRCode.toCanvas(canvas, qrPayload, {
-                    width: 200,
-                    margin: 1,
-                    color: { dark: '#000000', light: '#FFFFFF' }
-                });
+                await QRCode.toCanvas(canvas, qrPayload, { width: 200, margin: 1, color: { dark: '#000000', light: '#FFFFFF' } });
                 return canvas.toDataURL("image/png");
             }catch(e){ console.warn("Local QR failed:", e); }
         }
@@ -1578,46 +899,26 @@ window.onunhandledrejection = function(e) {
     }
 
     function addLog(regRaw, action){
-
-    let siteKey = SITE_ID + "_" + regRaw;
-    let v = visitors[siteKey];
-
-    const newLog = {
-        reg: regRaw,
-        name: v?.nama || regRaw,
-        company: v?.perusahaan || '',
-        category: v?.kategori || 'UMUM',
-        action,
-        time: Date.now(),
-        site: SITE_ID,
-        deviceId: localStorage.getItem("vms_device_id"),
-        hash: btoa(regRaw + action + Date.now())
-    };
-
-    logs.unshift(newLog);
-    logs = logs.slice(0,1000);
-    window.logs = logs;
-    secureSave();
-
-}
+        let siteKey = SITE_ID + "_" + regRaw;
+        let v = visitors[siteKey];
+        const newLog = { reg: regRaw, name: v?.nama || regRaw, company: v?.perusahaan || '', category: v?.kategori || 'UMUM', action, time: Date.now(), site: SITE_ID, deviceId: localStorage.getItem("deviceId"), hash: btoa(regRaw + action + Date.now()) };
+        logs.unshift(newLog);
+        logs = logs.slice(0,2000);
+        window.logs = logs;
+        secureSave();
+        setTimeout(() => syncToCloud(), 500);
+    }
 
     async function ensureJsPDFReady(){
-    if(window.jspdf) return true;
-    return new Promise((resolve)=>{
-        let max = 100;
-        let i = 0;
-        const interval = setInterval(()=>{
-            if(window.jspdf){
-                clearInterval(interval);
-                resolve(true);
-            }
-            if(i++ > max){
-                clearInterval(interval);
-                resolve(false);
-            }
-        },100);
-    });
-}
+        if(window.jspdf) return true;
+        return new Promise((resolve)=>{
+            let max = 100, i = 0;
+            const interval = setInterval(()=>{
+                if(window.jspdf){ clearInterval(interval); resolve(true); }
+                if(i++ > max){ clearInterval(interval); resolve(false); }
+            },100);
+        });
+    }
 
     function forceDownloadPDF(doc, filename){
         try{
@@ -1684,35 +985,17 @@ window.onunhandledrejection = function(e) {
         modal.className = 'modal-overlay';
         buildQR(reg, data).then(async qrPayload => {
             const qrBase64 = await generateQRImage(qrPayload);
-            modal.innerHTML = `
-                <div class="modal-card">
-                    <h3 style="margin-bottom:16px;">📄 Preview Invitation</h3>
-                    <div style="background:#f8fafc; padding:14px; border-radius:20px; margin-bottom:16px;">
-                        <p><strong>Name</strong> : ${data.nama}</p>
-                        <p><strong>Company</strong> : ${data.perusahaan}</p>
-                        <p><strong>Purpose</strong> : ${data.tujuan}</p>
-                        <p><strong>PIC</strong> : ${data.pic}</p>
-                        <p><strong>Validity</strong> : ${data.startDate} → ${data.expDate}</p>
-                        <p><strong>REG</strong> : ${reg}</p>
-                    </div>
-                    ${qrBase64 ? `<img class="qr-preview" src="${qrBase64}">` : '<div style="color:red; text-align:center;">QR gagal dimuat</div>'}
-                    <div class="flex-btns">
-                        <button id="confirmDownloadBtn">Download PDF</button>
-                        <button id="closePreviewBtn" class="btn-outline">Close</button>
-                    </div>
-                </div>
-            `;
+            modal.innerHTML = `<div class="modal-card"><h3 style="margin-bottom:16px;">📄 Preview Invitation</h3><div style="background:#f8fafc; padding:14px; border-radius:20px; margin-bottom:16px;"><p><strong>Name</strong> : ${data.nama}</p><p><strong>Company</strong> : ${data.perusahaan}</p><p><strong>Purpose</strong> : ${data.tujuan}</p><p><strong>PIC</strong> : ${data.pic}</p><p><strong>Validity</strong> : ${data.startDate} → ${data.expDate}</p><p><strong>REG</strong> : ${reg}</p></div>${qrBase64 ? `<img class="qr-preview" src="${qrBase64}">` : '<div style="color:red; text-align:center;">QR gagal dimuat</div>'}<div class="flex-btns"><button id="confirmDownloadBtn">Download PDF</button><button id="closePreviewBtn" class="btn-outline">Close</button></div></div>`;
             document.body.appendChild(modal);
             setTimeout(()=>modal.classList.add('active'),10);
             const confirmBtn = modal.querySelector('#confirmDownloadBtn');
             confirmBtn.onclick = async () => {
                 if(isDownloading) return;
                 isDownloading = true;
-                const originalText = confirmBtn.innerText;
                 confirmBtn.innerHTML = `Processing <span class="loader"></span>`;
                 confirmBtn.disabled = true;
                 if(previewData) await downloadPDFStable(previewData.reg, previewData.data);
-                confirmBtn.innerHTML = originalText;
+                confirmBtn.innerHTML = "Download PDF";
                 confirmBtn.disabled = false;
                 isDownloading = false;
                 modal.remove();
@@ -1721,56 +1004,53 @@ window.onunhandledrejection = function(e) {
         });
     }
 
-    const originalGenerateQRHandler = document.getElementById('generateQRBtn').onclick;
     document.getElementById('generateQRBtn').onclick = async () => {
         if(!canRegister()) return;
-        if(originalGenerateQRHandler) await originalGenerateQRHandler();
-        else {
-            let nama = document.getElementById('regName').value;
-            let perusahaan = document.getElementById('regCompany').value;
-            let kategori = document.getElementById('regCategory').value;
-            let tujuan = document.getElementById('regPurpose').value;
-            let custom = document.getElementById('regCustomPurpose').value;
-            if(tujuan === "Lainnya") tujuan = custom || "Custom";
-            let pic = document.getElementById('regPic').value;
-            let dept = document.getElementById('regDept').value;
-            let startDate = document.getElementById('regStartDate').value || new Date().toISOString().slice(0,10);
-            let expDate = document.getElementById('regExpDate').value;
-            if(!nama || !perusahaan || !pic || !dept || !expDate){ toast("Lengkapi semua field wajib","error"); return; }
-            let reg = generateReg();
-            let foto = "";
-            let file = document.getElementById('regPhotoFile').files[0];
-            if(file){ 
-                let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file);});
-                let img = new Image();
-                img.src = reader;
-                await new Promise(r => img.onload = r);
-                let canvas = document.createElement("canvas");
-                let maxWidth = 400;
-                let scale = maxWidth / img.width;
-                canvas.width = maxWidth;
-                canvas.height = img.height * scale;
-                let ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                foto = canvas.toDataURL("image/jpeg", 0.4);
-            }
-            let data = { nama, perusahaan, kategori, tujuan, pic, dept, startDate, expDate, foto, sessions:[], currentStatus:"OUT", updatedAt: Date.now(), version: 1, deviceId: deviceId, site: SITE_ID };
-            let siteKey = SITE_ID + "_" + reg;
-            visitors[siteKey] = data;
-            addLog(reg, "REGISTER");
-            toast(`✅ ${nama} terdaftar (${reg})`,"success");
-            showPreview(reg, data);
-            document.getElementById('regName').value = ""; 
-            document.getElementById('regCompany').value = ""; 
-            document.getElementById('regPic').value = ""; 
-            document.getElementById('regDept').value = ""; 
-            document.getElementById('regPhotoFile').value = ""; 
-            document.getElementById('previewPhotoThumb').src = "";
-            renderDashboard(); 
-            renderLogTable();
-            secureSave();
+        let nama = document.getElementById('regName').value;
+        let perusahaan = document.getElementById('regCompany').value;
+        let kategori = document.getElementById('regCategory').value;
+        let tujuan = document.getElementById('regPurpose').value;
+        let custom = document.getElementById('regCustomPurpose').value;
+        if(tujuan === "Lainnya") tujuan = custom || "Custom";
+        let pic = document.getElementById('regPic').value;
+        let dept = document.getElementById('regDept').value;
+        let startDate = document.getElementById('regStartDate').value || new Date().toISOString().slice(0,10);
+        let expDate = document.getElementById('regExpDate').value;
+        if(!nama || !perusahaan || !pic || !dept || !expDate){ toast("Lengkapi semua field wajib","error"); return; }
+        let reg = generateReg();
+        let foto = "";
+        let file = document.getElementById('regPhotoFile').files[0];
+        if(file){ 
+            let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file);});
+            let img = new Image();
+            img.src = reader;
+            await new Promise(r => img.onload = r);
+            let canvas = document.createElement("canvas");
+            let maxWidth = 400;
+            let scale = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * scale;
+            let ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            foto = canvas.toDataURL("image/jpeg", 0.4);
         }
+        let data = { nama, perusahaan, kategori, tujuan, pic, dept, startDate, expDate, foto, sessions:[], currentStatus:"OUT", updatedAt: Date.now(), version: 1, deviceId: deviceId, site: SITE_ID };
+        let siteKey = SITE_ID + "_" + reg;
+        visitors[siteKey] = data;
+        addLog(reg, "REGISTER");
+        toast(`✅ ${nama} terdaftar (${reg})`,"success");
+        showPreview(reg, data);
+        document.getElementById('regName').value = ""; 
+        document.getElementById('regCompany').value = ""; 
+        document.getElementById('regPic').value = ""; 
+        document.getElementById('regDept').value = ""; 
+        document.getElementById('regPhotoFile').value = ""; 
+        document.getElementById('previewPhotoThumb').src = "";
+        renderDashboard(); 
+        renderLogTable();
+        secureSave();
         updateMonetizationUI();
+        setTimeout(() => syncToCloud(), 500);
     };
 
     async function capturePhoto(){
@@ -1802,59 +1082,56 @@ window.onunhandledrejection = function(e) {
         });
     }
     
-    const originalWalkinHandler = document.getElementById('walkinBtn').onclick;
     document.getElementById('walkinBtn').onclick = async () => {
         if(!canRegister()) return;
-        if(originalWalkinHandler) await originalWalkinHandler();
-        else {
-            toast("Ambil foto untuk walk-in","info");
-            let photoFile = await capturePhoto();
-            let fotoBase64 = "";
-            if(photoFile){ 
-                let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(photoFile);});
-                let img = new Image();
-                img.src = reader;
-                await new Promise(r => img.onload = r);
-                let canvas = document.createElement("canvas");
-                let maxWidth = 400;
-                let scale = maxWidth / img.width;
-                canvas.width = maxWidth;
-                canvas.height = img.height * scale;
-                let ctx = canvas.getContext("2d");
-                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                fotoBase64 = canvas.toDataURL("image/jpeg", 0.4);
-            }
-            let reg = generateReg();
-            let now = new Date(); 
-            let exp = new Date(now); 
-            exp.setDate(exp.getDate()+1);
-            let walkData = { 
-                nama: `WALK-IN ${now.toLocaleString()}`, 
-                perusahaan: "Guest Visitor", 
-                kategori: "UMUM", 
-                tujuan: "Immediate Visit", 
-                pic: "Reception", 
-                dept: "Umum", 
-                startDate: now.toISOString().slice(0,10), 
-                expDate: exp.toISOString().slice(0,10), 
-                foto: fotoBase64, 
-                sessions:[], 
-                currentStatus:"OUT",
-                updatedAt: Date.now(),
-                version: 1,
-                deviceId: deviceId,
-                site: SITE_ID
-            };
-            let siteKey = SITE_ID + "_" + reg;
-            visitors[siteKey] = walkData;
-            addLog(reg, "WALK-IN");
-            toast(`Walk-in registered ${reg}`,"success");
-            showPreview(reg, walkData);
-            renderDashboard(); 
-            renderLogTable();
-            secureSave();
+        toast("Ambil foto untuk walk-in","info");
+        let photoFile = await capturePhoto();
+        let fotoBase64 = "";
+        if(photoFile){ 
+            let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(photoFile);});
+            let img = new Image();
+            img.src = reader;
+            await new Promise(r => img.onload = r);
+            let canvas = document.createElement("canvas");
+            let maxWidth = 400;
+            let scale = maxWidth / img.width;
+            canvas.width = maxWidth;
+            canvas.height = img.height * scale;
+            let ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+            fotoBase64 = canvas.toDataURL("image/jpeg", 0.4);
         }
+        let reg = generateReg();
+        let now = new Date(); 
+        let exp = new Date(now); 
+        exp.setDate(exp.getDate()+1);
+        let walkData = { 
+            nama: `WALK-IN ${now.toLocaleString()}`, 
+            perusahaan: "Guest Visitor", 
+            kategori: "UMUM", 
+            tujuan: "Immediate Visit", 
+            pic: "Reception", 
+            dept: "Umum", 
+            startDate: now.toISOString().slice(0,10), 
+            expDate: exp.toISOString().slice(0,10), 
+            foto: fotoBase64, 
+            sessions:[], 
+            currentStatus:"OUT",
+            updatedAt: Date.now(),
+            version: 1,
+            deviceId: deviceId,
+            site: SITE_ID
+        };
+        let siteKey = SITE_ID + "_" + reg;
+        visitors[siteKey] = walkData;
+        addLog(reg, "WALK-IN");
+        toast(`Walk-in registered ${reg}`,"success");
+        showPreview(reg, walkData);
+        renderDashboard(); 
+        renderLogTable();
+        secureSave();
         updateMonetizationUI();
+        setTimeout(() => syncToCloud(), 500);
     };
 
     let scannerInstance = null;
@@ -1879,7 +1156,6 @@ window.onunhandledrejection = function(e) {
         try {
             await scannerInstance.start(currentCameraId, { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
                 async (decodedText) => {
-                    if (!canScan()) return;
                     if (processingRegs.has(decodedText)) { return; }
                     try { await processScan(decodedText); } catch (err) {}
                 },
@@ -1902,9 +1178,7 @@ window.onunhandledrejection = function(e) {
         if(container) container.innerHTML = "";
     }
 
-    const originalStartCamHandler = document.getElementById('startCamBtn').onclick;
     document.getElementById('startCamBtn').onclick = async () => { 
-        if(!canScan()) return;
         const container = document.getElementById('cameraPreview'); 
         container.innerHTML = ''; 
         await stopScanner(); 
@@ -1914,9 +1188,7 @@ window.onunhandledrejection = function(e) {
     document.getElementById('stopCamBtn').onclick = async () => { await stopScanner(); await cleanupScanner(); toast("Kamera berhenti", "info"); };
     
     document.getElementById('uploadQrBtn').onclick = () => document.getElementById('uploadQrFile').click();
-    const originalUploadHandler = document.getElementById('uploadQrFile').onchange;
     document.getElementById('uploadQrFile').onchange = async (e) => {
-        if(!canScan()) return;
         let file = e.target.files[0];
         if(!file) return;
         try {
@@ -1979,12 +1251,11 @@ window.onunhandledrejection = function(e) {
             renderLogTable();
             secureSave();
             updateMonetizationUI();
+            setTimeout(() => syncToCloud(), 500);
         } finally { setTimeout(()=>processingRegs.delete(reg), 1000); }
     }
     
-    const originalManualHandler = document.getElementById('manualProcess').onclick;
     document.getElementById('manualProcess').onclick = async () => {
-        if(!canScan()) return;
         if(isManualProcessing){ toast("Sedang diproses","warning"); return; }
         isManualProcessing = true;
         try {
@@ -2016,6 +1287,7 @@ window.onunhandledrejection = function(e) {
             renderLogTable();
             secureSave();
             updateMonetizationUI();
+            setTimeout(() => syncToCloud(), 500);
         } finally { isManualProcessing = false; }
     };
 
@@ -2025,11 +1297,7 @@ window.onunhandledrejection = function(e) {
             let active = v.filter(x=>x.currentStatus==="IN").length;
             let today = new Date().toDateString();
             let todayCheck = logs.filter(l=> new Date(l.time).toDateString()===today && l.action==="CHECK_IN").length;
-            document.getElementById('statsWidget').innerHTML = `
-                <div class="stat-card"><h4>Total Visitors</h4><div class="stat-number">${v.length}</div></div>
-                <div class="stat-card"><h4>Active Inside</h4><div class="stat-number">${active}</div></div>
-                <div class="stat-card"><h4>Check-ins Today</h4><div class="stat-number">${todayCheck}</div></div>
-            `;
+            document.getElementById('statsWidget').innerHTML = `<div class="stat-card"><h4>Total Visitors</h4><div class="stat-number">${v.length}</div></div><div class="stat-card"><h4>Active Inside</h4><div class="stat-number">${active}</div></div><div class="stat-card"><h4>Check-ins Today</h4><div class="stat-number">${todayCheck}</div></div>`;
             let last7 = [...Array(7)].map((_,i)=>{let d=new Date(); d.setDate(d.getDate()-i); return d.toLocaleDateString('id',{weekday:'short'});}).reverse();
             let trend = last7.map((_,i)=>{let d=new Date(); d.setDate(d.getDate()-(6-i)); return logs.filter(l=>new Date(l.time).toDateString()===d.toDateString() && l.action==="CHECK_IN").length;});
             const trendCanvas = document.getElementById('trendChart');
@@ -2073,12 +1341,8 @@ window.onunhandledrejection = function(e) {
     document.getElementById('selectAllBtn').onclick = () => document.querySelectorAll('.logCheckItem').forEach(c=>c.checked=true);
     document.getElementById('deselectAllBtn').onclick = () => document.querySelectorAll('.logCheckItem').forEach(c=>c.checked=false);
     document.getElementById('deleteSelectedBtn').onclick = () => {
-        if(!isAdmin()) return;
         let regs = [...new Set([...document.querySelectorAll('.logCheckItem:checked')].map(c=>c.dataset.reg))];
-        regs.forEach(r=>{
-            let siteKey = SITE_ID + "_" + r;
-            delete visitors[siteKey];
-        });
+        regs.forEach(r=>{ let siteKey = SITE_ID + "_" + r; delete visitors[siteKey]; });
         const newLogs = logs.filter(l=>!regs.includes(l.reg));
         logs.length = 0;
         logs.push(...newLogs);
@@ -2086,9 +1350,9 @@ window.onunhandledrejection = function(e) {
         secureSave();
         renderDashboard(); renderLogTable(); toast(`Deleted ${regs.length} records`,"success");
         updateMonetizationUI();
+        setTimeout(() => syncToCloud(), 500);
     };
     document.getElementById('deleteAllBtn').onclick = () => { 
-        if(!isAdmin()) return;
         visitors = {}; 
         window.visitors = visitors;
         logs.length = 0;
@@ -2098,154 +1362,29 @@ window.onunhandledrejection = function(e) {
         renderLogTable(); 
         toast("All data cleared","info"); 
         updateMonetizationUI();
+        setTimeout(() => syncToCloud(), 500);
     };
     
-        document.getElementById('exportExcelAction').onclick = () => {
-        if(isDemo()) { toast("Export tidak tersedia di DEMO mode. Upgrade license!", "error"); return; }
-        try {
-            if (!window.XLSX) {
-                toast("Excel engine belum siap", "error");
-                return;
-            }
-
-            const dataForExcel = [];
-
-            Object.entries(visitors).forEach(([siteKey, visitor]) => {
-                if (!siteKey.startsWith(SITE_ID + "_")) return;
-
-                const reg = siteKey.replace(SITE_ID + "_", "");
-                const now = new Date();
-                const expDate = visitor.expDate ? new Date(visitor.expDate) : null;
-                
-                let masaBerlakuStatus = "";
-                let keterangan = "";
-                
-                if (expDate) {
-                    if (expDate < now) {
-                        masaBerlakuStatus = "❌ EXPIRED";
-                        keterangan = "QR Code sudah kadaluarsa";
-                    } else {
-                        const daysLeft = Math.ceil((expDate - now) / (1000 * 60 * 60 * 24));
-                        masaBerlakuStatus = `✅ AKTIF (sisa ${daysLeft} hari)`;
-                        keterangan = `Berlaku hingga ${visitor.expDate}`;
-                    }
-                } else {
-                    masaBerlakuStatus = "⚠️ TIDAK DITENTUKAN";
-                    keterangan = "Tanggal kadaluarsa tidak diisi";
-                }
-
-                const hasAnyCheckIn = visitor.sessions && visitor.sessions.some(s => s.checkIn);
-                
-                if (!hasAnyCheckIn) {
-                    keterangan += " | Belum pernah melakukan check-in";
-                } else {
-                    const isCurrentlyInside = visitor.currentStatus === "IN";
-                    if (isCurrentlyInside) {
-                        keterangan += " | Sedang berada di dalam area";
-                    } else {
-                        keterangan += " | Sudah check-out";
-                    }
-                }
-
-                if (visitor.sessions && visitor.sessions.length > 0) {
-                    visitor.sessions.forEach((session, idx) => {
-                        const checkInDate = session.checkIn ? new Date(session.checkIn) : null;
-                        const checkOutDate = session.checkOut ? new Date(session.checkOut) : null;
-                        
-                        const formatDateTime = (date) => {
-                            if (!date) return "-";
-                            const y = date.getFullYear();
-                            const m = String(date.getMonth() + 1).padStart(2, '0');
-                            const d = String(date.getDate()).padStart(2, '0');
-                            const h = String(date.getHours()).padStart(2, '0');
-                            const mi = String(date.getMinutes()).padStart(2, '0');
-                            const s = String(date.getSeconds()).padStart(2, '0');
-                            return `${y}-${m}-${d} ${h}:${mi}:${s}`;
-                        };
-
-                        let durationText = "-";
-                        let statusText = "IN PROGRESS";
-                        let sessionKeterangan = keterangan;
-
-                        if (session.checkIn && session.checkOut) {
-                            const durationMinutes = Math.floor((session.checkOut - session.checkIn) / 60000);
-                            durationText = durationMinutes.toString();
-                            statusText = "COMPLETED";
-                            sessionKeterangan += ` | Durasi kunjungan: ${durationMinutes} menit`;
-                        } else if (session.checkIn && !session.checkOut) {
-                            durationText = "IN PROGRESS";
-                            statusText = "IN PROGRESS";
-                            const durationMinutes = Math.floor((now - session.checkIn) / 60000);
-                            sessionKeterangan += ` | Sedang berkunjung (${durationMinutes} menit berjalan)`;
-                        }
-
-                        dataForExcel.push({
-                            "Nama": visitor.nama || "-",
-                            "No. Registrasi": reg,
-                            "Perusahaan": visitor.perusahaan || "-",
-                            "Kategori": visitor.kategori || "UMUM",
-                            "Tujuan": visitor.tujuan || "-",
-                            "PIC": visitor.pic || "-",
-                            "Departemen": visitor.dept || "-",
-                            "Sesi Ke": idx + 1,
-                            "Check-In": formatDateTime(checkInDate),
-                            "Check-Out": formatDateTime(checkOutDate),
-                            "Durasi (menit)": durationText,
-                            "Status Sesi": statusText,
-                            "Masa Berlaku QR": masaBerlakuStatus,
-                            "Tanggal Kadaluarsa": visitor.expDate || "-",
-                            "Keterangan": sessionKeterangan
-                        });
-                    });
-                } else {
-                    dataForExcel.push({
-                        "Nama": visitor.nama || "-",
-                        "No. Registrasi": reg,
-                        "Perusahaan": visitor.perusahaan || "-",
-                        "Kategori": visitor.kategori || "UMUM",
-                        "Tujuan": visitor.tujuan || "-",
-                        "PIC": visitor.pic || "-",
-                        "Departemen": visitor.dept || "-",
-                        "Sesi Ke": "-",
-                        "Check-In": "-",
-                        "Check-Out": "-",
-                        "Durasi (menit)": "-",
-                        "Status Sesi": "TERDAFTAR (Belum ada aktivitas)",
-                        "Masa Berlaku QR": masaBerlakuStatus,
-                        "Tanggal Kadaluarsa": visitor.expDate || "-",
-                        "Keterangan": keterangan + " | Belum melakukan scan QR"
-                    });
-                }
-            });
-
-            dataForExcel.sort((a, b) => (a["Nama"] || "").localeCompare(b["Nama"] || ""));
-
-            const ws = XLSX.utils.json_to_sheet(dataForExcel);
-            
-            ws['!cols'] = [
-                {wch:25}, {wch:18}, {wch:20}, {wch:12}, {wch:20},
-                {wch:15}, {wch:15}, {wch:8}, {wch:20}, {wch:20},
-                {wch:15}, {wch:18}, {wch:18}, {wch:18}, {wch:35}
-            ];
-            
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "VMS_Visitor_Report");
-            XLSX.writeFile(wb, `VMS_Report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
-            
-            toast("✅ Excel berhasil di export dengan kolom keterangan lengkap", "success");
-        } catch(err) { 
-            console.error("Export error:", err); 
-            toast("Export gagal: " + err.message, "error"); 
-        }
+    document.getElementById('exportExcelAction').onclick = () => {
+        if (!window.XLSX) { toast("Excel engine belum siap", "error"); return; }
+        const dataForExcel = [];
+        Object.entries(visitors).forEach(([siteKey, visitor]) => {
+            if (!siteKey.startsWith(SITE_ID + "_")) return;
+            const reg = siteKey.replace(SITE_ID + "_", "");
+            dataForExcel.push({ "Nama": visitor.nama || "-", "No. Registrasi": reg, "Perusahaan": visitor.perusahaan || "-", "Kategori": visitor.kategori || "UMUM", "Tujuan": visitor.tujuan || "-", "PIC": visitor.pic || "-", "Check-In": visitor.sessions?.[0]?.checkIn ? new Date(visitor.sessions[0].checkIn).toLocaleString() : "-", "Waktu Register": new Date(visitor.updatedAt || Date.now()).toLocaleString() });
+        });
+        const ws = XLSX.utils.json_to_sheet(dataForExcel);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "VMS_Visitor_Report");
+        XLSX.writeFile(wb, `VMS_Report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
+        toast("✅ Excel berhasil di export", "success");
     };
     
-    document.getElementById('backupAction').onclick = () => {
-        if(isDemo()) { toast("Backup tidak tersedia di DEMO mode. Upgrade license!", "error"); return; }
+    document.getElementById('backupAction').onclick = () => { 
         try { let a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({visitors,logs,auditLogs})],{type:"application/json"})); a.download = `vms_backup_${Date.now()}.json`; a.click(); toast("Backup ready","success"); }
         catch(e) { toast("Backup gagal", "error"); }
     };
     document.getElementById('resetDatabaseAction').onclick = () => { 
-        if(!isAdmin()) return;
         visitors = {}; 
         window.visitors = visitors;
         logs.length = 0;
@@ -2256,115 +1395,125 @@ window.onunhandledrejection = function(e) {
         renderLogTable(); 
         toast("Database reset","info"); 
         updateMonetizationUI();
+        setTimeout(() => syncToCloud(), 500);
     };
     document.getElementById('regPhotoFile').onchange = (e) => { if(e.target.files[0]){ let r=new FileReader(); r.onload=ev=>document.getElementById('previewPhotoThumb').src=ev.target.result; r.readAsDataURL(e.target.files[0]); } };
 
-    const panes = { dashboard: document.getElementById('dashboardPane'), register: document.getElementById('registerPane'), scanner: document.getElementById('scannerPane'), logs: document.getElementById('logsPane') };
-    function switchTab(tabId){
-        Object.values(panes).forEach(p=>p.classList.remove('active-pane'));
-        if(panes[tabId]) panes[tabId].classList.add('active-pane');
-        document.querySelectorAll('.nav-item').forEach(nav=>{ if(nav.dataset.tab === tabId) nav.classList.add('active'); else nav.classList.remove('active'); });
-        document.querySelectorAll('.mobile-nav').forEach(nav=>{ if(nav.dataset.tab === tabId) nav.classList.add('active'); else nav.classList.remove('active'); });
-    }
-    document.querySelectorAll('.nav-item, .mobile-nav').forEach(el=>{
-        if(el.dataset && el.dataset.tab){
-            el.addEventListener('click',()=>{ switchTab(el.dataset.tab); if(window.innerWidth<=780) document.getElementById('mobileSidebar').classList.remove('open'); document.getElementById('overlay').style.display='none'; });
-        }
-    });
-    document.getElementById('mobileMenuBtn').onclick = () => { document.getElementById('mobileSidebar').classList.add('open'); document.getElementById('overlay').style.display='block'; };
-    document.getElementById('overlay').onclick = () => { document.getElementById('mobileSidebar').classList.remove('open'); document.getElementById('overlay').style.display='none'; };
-    window.addEventListener('resize',()=>{ if(window.innerWidth>780){ document.getElementById('mobileSidebar').classList.remove('open'); document.getElementById('overlay').style.display='none'; } });
-    
-    document.getElementById('submitLicenseBtn').onclick = () => {
-        let input = document.getElementById("licenseInput");
-        if(input) applyLicenseKey(input.value);
-        input.value = "";
-    };
-    document.getElementById('doLoginBtn').onclick = () => {
-        let u = document.getElementById('loginUsername').value;
-        let p = document.getElementById('loginPassword').value;
-        login(u, p);
-    };
-    document.getElementById('logoutBtnTop').onclick = logout;
-    document.getElementById('logoutBtnSidebar').onclick = logout;
-    document.getElementById('siteSelector').onchange = (e) => setSite(e.target.value);
-document.getElementById('siteSelectorTop').onchange = (e) => setSite(e.target.value);
+    const panes = {
+    dashboard: document.getElementById('dashboardPane'),
+    register: document.getElementById('registerPane'),
+    scanner: document.getElementById('scannerPane'),
+    logs: document.getElementById('logsPane')
+};
 
+function switchTab(tabId){
+    Object.values(panes).forEach(p => { if(p) p.classList.remove('active-pane'); });
+    if(panes[tabId]) panes[tabId].classList.add('active-pane');
+
+    document.querySelectorAll('.nav-item').forEach(nav=>{
+        if(nav.dataset.tab === tabId) nav.classList.add('active');
+        else nav.classList.remove('active');
+    });
+
+    document.querySelectorAll('.mobile-nav').forEach(nav=>{
+        if(nav.dataset.tab === tabId) nav.classList.add('active');
+        else nav.classList.remove('active');
+    });
+}
+
+document.querySelectorAll('.nav-item, .mobile-nav').forEach(el=>{
+    if(el.dataset && el.dataset.tab){
+        el.addEventListener('click',()=>{
+            switchTab(el.dataset.tab);
+
+            if(window.innerWidth<=780){
+                const sb = document.getElementById('mobileSidebar');
+                const ov = document.getElementById('overlay');
+                if(sb) sb.classList.remove('open');
+                if(ov) ov.style.display='none';
+            }
+        });
+    }
+});
+
+// ===== SAFE CLICK BINDING =====
+const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+const mobileSidebar = document.getElementById('mobileSidebar');
+const overlay = document.getElementById('overlay');
+
+if(mobileMenuBtn && mobileSidebar && overlay){
+    mobileMenuBtn.onclick = () => {
+        mobileSidebar.classList.add('open');
+        overlay.style.display='block';
+    };
+
+    overlay.onclick = () => {
+        mobileSidebar.classList.remove('open');
+        overlay.style.display='none';
+    };
+}
+
+window.addEventListener('resize',()=>{
+    if(window.innerWidth>780){
+        const sb = document.getElementById('mobileSidebar');
+        const ov = document.getElementById('overlay');
+        if(sb) sb.classList.remove('open');
+        if(ov) ov.style.display='none';
+    }
+});
+
+// ===== LICENSE =====
+const submitLicenseBtn = document.getElementById('submitLicenseBtn');
+const licenseInput = document.getElementById("licenseInput");
+
+if(submitLicenseBtn && licenseInput){
+    submitLicenseBtn.onclick = () => {
+        if(licenseInput.value) applyLicenseKey(licenseInput.value);
+        licenseInput.value = "";
+    };
+}
+
+// ===== LOGIN =====
+const doLoginBtn = document.getElementById('doLoginBtn');
+if(doLoginBtn){
+    doLoginBtn.onclick = () => {
+        toast("Login disabled - Demo Mode Only", "warning");
+    };
+}
+
+// ===== LOGOUT =====
+const logoutTop = document.getElementById('logoutBtnTop');
+if(logoutTop) logoutTop.onclick = logout;
+
+const logoutSidebar = document.getElementById('logoutBtnSidebar');
+if(logoutSidebar) logoutSidebar.onclick = logout;
+
+// ===== SITE =====
+const siteSelector = document.getElementById('siteSelector');
+if(siteSelector){
+    siteSelector.onchange = (e) => setSite(e.target.value);
+}
+
+const siteSelectorTop = document.getElementById('siteSelectorTop');
+if(siteSelectorTop){
+    siteSelectorTop.onchange = (e) => setSite(e.target.value);
+}
+
+// ===== SYNC =====
+const manualSyncBtn = document.getElementById('manualSyncBtn');
+if(manualSyncBtn) manualSyncBtn.onclick = manualSync;
+
+
+// ===== INIT (TIDAK DIUBAH) =====
 loadUserSession();
 setSite(SITE_ID);
-
 renderDashboard(); 
 renderLogTable();
 updateMonetizationUI();
-
 applyLicenseUI();
-lockLicense();
+vmsSite_init();
 
-// 🔥 ANTI NAKAL ENGINE
-setInterval(async ()=>{
-    if(!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-        async function(pos) {
-            try{
-                const meta = window.getDeviceMeta ? window.getDeviceMeta() : {};
-                await fetch(CLOUD_URL + "/save",{
-                    method:"POST",
-                    headers:{ "Content-Type":"application/json" },
-                    body: JSON.stringify({
-                        deviceId: localStorage.getItem("vms_device_id"),
-                        meta: meta,
-                        anti:{
-                            lat: pos.coords.latitude,
-                            lng: pos.coords.longitude,
-                            acc: pos.coords.accuracy,
-                            license: localStorage.getItem("vms_license"),
-                            flags: JSON.parse(localStorage.getItem("vms_anti_flags") || "[]")
-                        }
-                    })
-                });
-            }catch(e){
-                console.log("GPS send gagal:", e);
-            }
-        },
-        function(error) {
-            console.warn("GPS error (interval):", error.message);
-        }
-    );
-},5000);
-
-setInterval(()=>{
-    if(!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition(
-        async function(pos) {
-            if(!pos || !pos.coords) return;
-            try{
-                const gpsData = {
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    acc: pos.coords.accuracy,
-                    ts: Date.now()
-                };
-                localStorage.setItem("vms_last_gps_raw", JSON.stringify(gpsData));
-                let flags = [];
-                try{
-                    flags = JSON.parse(localStorage.getItem("vms_anti_flags") || "[]");
-                }catch(e){}
-                flags.push({
-                    type: "GPS_LOCATION",
-                    lat: pos.coords.latitude,
-                    lng: pos.coords.longitude,
-                    time: Date.now()
-                });
-                localStorage.setItem("vms_anti_flags", JSON.stringify(flags.slice(-50)));
-            }catch(e){
-                console.log("GPS error:", e);
-            }
-        },
-        function(error) {
-            console.warn("GPS error (30s loop):", error.message);
-        }
-    );
-}, 30000);
+startAutoSync();
 
 window.downloadPDFStable = downloadPDFStable;
 window.logs = logs;
@@ -2383,834 +1532,97 @@ window.canRegisterSilent = canRegisterSilent;
 window.canScanSilent = canScanSilent;
 window.getCurrentVisitorCount = getCurrentVisitorCount;
 window.getCurrentScanCount = getCurrentScanCount;
+window.syncToCloud = syncToCloud;
+window.syncFromCloud = syncFromCloud;
+
+// ❌ JANGAN REDECLARE VMS_API
+// window.VMS_API = VMS_API;  ← HAPUS BARIS INI KALAU ADA
 
 window.addEventListener("beforeunload", () => secureSave());
-    
-    toast("🔥 HYBRID SYSTEM ACTIVE - License: " + LICENSE_MODE + " | QR Unlimited | Multi-Site Safe","success");
+
+toast("🔥 VMS ACTIVE - Cross Device Sync Enabled | License: DEMO","success");
 })();
 </script>
+// ==================== VMS CORE ENGINE ====================
+let vms_lastSync = 0;
+let vms_deviceId = generateDeviceId();
+let vms_syncLock = false;
 
-<!-- ================= SUPER SYNC PATCH ================= -->
-<script>
-(function(){
+async function vms_init() {
+    const licenseKey = localStorage.getItem("licenseKey");
+    if (!licenseKey) return;
 
-if(window.__VMS_SUPER_PATCH__) return;
-window.__VMS_SUPER_PATCH__ = true;
+    const res = await VMS_API.validate(licenseKey, vms_deviceId, "MAIN_DEVICE");
 
-let retryQueue = [];
-let isSyncing = false;
-let syncTimer = null;
-let lastSyncTime = 0;
-let lastPayloadHash = "";
-let isBeaconSending = false;
-
-const MAX_QUEUE = 20;
-const CLOUD_URL = "https://privms.wonggemblunxs.workers.dev";
-
-function hashPayload(p){
-    return (
-        Object.entries(p.visitors || {})
-            .sort(([a],[b]) => a.localeCompare(b))
-            .map(([k, v]) => k + "_" + (v.updatedAt || 0))
-            .join("|")
-        +
-        "_"
-        +
-        (p.logs || [])
-            .map(l => l.time + "_" + (l.reg||"") + "_" + (l.action||""))
-            .sort()
-            .join("|")
-    );
-}
-
-function buildPayload(){
-
-    const now = Date.now();
-
-    const deltaVisitors = {};
-    Object.entries(window.visitors || {}).forEach(([k, v]) => {
-        if((v.updatedAt || 0) > lastSyncTime){
-            deltaVisitors[k] = v;
-        }
-    });
-
-    const deltaLogs = (window.logs || [])
-        .filter(l => (l.time || 0) > lastSyncTime)
-        .slice(0, 100);
-
-    let antiFlags = [];
-    try{
-        antiFlags = JSON.parse(localStorage.getItem("vms_anti_flags") || "[]");
-    }catch(e){
-        antiFlags = [];
-    }
-
-    return {
-        visitors: deltaVisitors,
-        logs: deltaLogs,
-        deviceId: localStorage.getItem('vms_device_id') || 'unknown',
-        site: localStorage.getItem('vms_site') || 'SITE_A',
-        ts: now,
-        anti: {
-            flags: antiFlags.slice(-20),
-            deviceId: localStorage.getItem("vms_device_id"),
-            license: localStorage.getItem("vms_license"),
-            site: localStorage.getItem("vms_site"),
-            ts: now
-        }
-    };
-}
-
-async function saveToCloudSafe(payload){
-
-    if(
-    !payload ||
-    (
-        (!payload.visitors || Object.keys(payload.visitors).length === 0) &&
-        (!payload.logs || payload.logs.length === 0)
-    )
-){
-    return;
-}
-
-    const hash = hashPayload(payload);
-
-    if(hash === lastPayloadHash && lastSyncTime > 0){
+    if (!res.ok) {
+        console.warn("License invalid");
         return;
     }
 
-    if(isSyncing || !navigator.onLine) return;
+    console.log("[VMS] VALID");
 
-    isSyncing = true;
+    await vms_sync();
 
-    try{
-const meta = window.getDeviceMeta ? window.getDeviceMeta() : {};
-payload.meta = meta;
-        const res = await fetch(CLOUD_URL + "/save",{
-            method:"POST",
-            headers:{ "Content-Type":"application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if(res.ok){
-            lastSyncTime = payload.ts || Date.now();
-            lastPayloadHash = hash;
-
-            if(retryQueue.length && retryQueue[0]?.payload?.ts === payload.ts){
-                retryQueue.shift();
-            }
-        }else{
-            throw new Error("Bad response");
-        }
-
-    }catch(e){
-
-        const exists = retryQueue.find(i => i.payload?.ts === payload.ts);
-
-        if(!exists){
-            if(retryQueue.length >= MAX_QUEUE){
-                retryQueue.shift();
-            }
-
-            retryQueue.push({
-                payload,
-                time: Date.now(),
-                retry: 0
-            });
-        }
-
-    } finally {
-        isSyncing = false;
-    }
+    setInterval(vms_sync, 5000);
 }
 
-setInterval(async ()=>{
+async function vms_sync() {
+    if (vms_syncLock) return;
+    vms_syncLock = true;
 
-    if(!navigator.onLine || !retryQueue.length) return;
+    try {
+        const licenseKey = localStorage.getItem("licenseKey");
+        if (!licenseKey) return;
 
-    const item = retryQueue[0];
+        const res = await VMS_API.sync(licenseKey, vms_deviceId, vms_lastSync);
 
-    if(item.retry >= 5){
-        retryQueue.shift();
-        return;
-    }
+        if (!res.ok) return;
 
-    const backoff = Math.min(3000 * Math.pow(2, item.retry), 30000);
-
-    if(Date.now() - item.time < backoff) return;
-
-    await saveToCloudSafe(item.payload);
-
-    if(retryQueue.length && retryQueue[0] === item){
-        item.retry++;
-        item.time = Date.now();
-    }
-
-}, 3000);
-
-function smartSync(type="normal"){
-    clearTimeout(syncTimer);
-
-    const delay = type === "scan" ? 300 : 1000;
-
-    syncTimer = setTimeout(()=>{
-        saveToCloudSafe(buildPayload());
-    }, delay);
-}
-
-window.saveToCloud = function(){
-    smartSync();
-};
-
-window.smartSync = smartSync;
-
-if(window.addLog){
-    const old = window.addLog;
-    window.addLog = function(){
-        const r = old.apply(this, arguments);
-        smartSync("scan");
-        return r;
-    };
-}
-
-if(window.processScan){
-    const old = window.processScan;
-    window.processScan = async function(){
-        const r = await old.apply(this, arguments);
-        smartSync("scan");
-        return r;
-    };
-}
-
-window.addEventListener("online", ()=>{
-    smartSync();
-});
-
-window.addEventListener("visibilitychange", ()=>{
-    if(document.visibilityState === "hidden"){
-        if(isBeaconSending) return;
-        isBeaconSending = true;
-
-        try{
-            const payload = buildPayload();
-            navigator.sendBeacon(CLOUD_URL + "/save", JSON.stringify(payload));
-        }catch(e){
-            console.warn("Beacon error:", e);
-        } finally {
-            setTimeout(()=> isBeaconSending=false, 1000);
-        }
-    }
-});
-
-window.addEventListener("load", ()=>{
-    smartSync();
-});
-
-console.log("🔥 SUPER PATCH ACTIVE (CLEAN INJECT)");
-
-})();
-</script>
-
-<!-- ================= HYBRID ORCHESTRATION LAYER ================= -->
-<script>
-(function() {
-    if (window.__HYBRID_ORCHESTRATION_LOADED__) return;
-    window.__HYBRID_ORCHESTRATION_LOADED__ = true;
-
-    const CLOUD_URL = "https://privms.wonggemblunxs.workers.dev";
-    let currentMode = "DEMO";
-    let onlineStatus = true;
-    let lastValidSession = null;
-
-    async function sha256(str) {
-        const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
-        return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('');
-    }
-
-    function detectMode() {
-        const license = localStorage.getItem("vms_license") || "DEMO";
-        currentMode = license === "PRO" ? "PRO" : (license === "BASIC" ? "BASIC" : "DEMO");
-        return currentMode;
-    }
-
-    async function checkOnline() {
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 3000);
-            const res = await fetch(CLOUD_URL + "/", { signal: controller.signal });
-            clearTimeout(timeout);
-            onlineStatus = res.ok;
-        } catch {
-            onlineStatus = false;
-        }
-        return onlineStatus;
-    }
-
-    function showToast(message, type = "info") {
-        const toast = document.createElement("div");
-        toast.className = `toast-msg ${type}`;
-        toast.innerText = message;
-        toast.style.cssText = `
-            position: fixed; bottom: 20px; right: 20px;
-            background: ${type === "error" ? "#b91c1c" : (type === "success" ? "#1f4e4a" : "#1e293b")};
-            color: white; padding: 10px 20px; border-radius: 40px;
-            z-index: 10000; font-size: 0.8rem; animation: fadeIn 0.2s;
-        `;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 3000);
-    }
-    window.showToast = showToast;
-
-    async function ensureDefaultAdmin() {
-        let users = JSON.parse(localStorage.getItem("vms_users") || "[]");
-        if (users.length === 0) {
-            users = [{
-                username: "admin",
-                password: await sha256("123456"),
-                role: "SUPER_ADMIN"
-            }];
-            localStorage.setItem("vms_users", JSON.stringify(users));
-        }
-        return users;
-    }
-
-    async function syncUsersToServer() {
-        if (!onlineStatus) return false;
-        try {
-            const localUsers = JSON.parse(localStorage.getItem("vms_users") || "[]");
-            const res = await fetch(CLOUD_URL + "/sync-users", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ users: localUsers })
-            });
-            if (res.ok) {
-                const data = await res.json();
-                if (data.users) localStorage.setItem("vms_users", JSON.stringify(data.users));
-                return true;
-            }
-        } catch (e) {
-            console.warn("Sync users failed:", e);
-        }
-        return false;
-    }
-
-    async function serverLogin(username, password) {
-        try {
-            const res = await fetch(CLOUD_URL + "/login", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ username, password })
-            });
-            const data = await res.json();
-            if (data.ok && data.token) {
-                localStorage.setItem("vms_token", data.token);
-                localStorage.setItem("vms_role", data.role);
-                localStorage.setItem("vms_user", JSON.stringify({ username, role: data.role }));
-                lastValidSession = { username, role: data.role, token: data.token, timestamp: Date.now() };
-                localStorage.setItem("vms_last_valid_session", JSON.stringify(lastValidSession));
-                return { success: true, role: data.role };
-            }
-            return { success: false, error: data.error || "Login failed" };
-        } catch (e) {
-            return { success: false, error: e.message };
-        }
-    }
-
-    async function localLogin(username, password) {
-        await ensureDefaultAdmin();
-        const users = JSON.parse(localStorage.getItem("vms_users") || "[]");
-        const passwordHash = await sha256(password);
-        const user = users.find(u => u.username === username && u.password === passwordHash);
-        if (user) {
-            localStorage.setItem("vms_user", JSON.stringify({ username: user.username, role: user.role }));
-            localStorage.setItem("vms_role", user.role);
-            localStorage.removeItem("vms_token");
-            return { success: true, role: user.role };
-        }
-        return { success: false, error: "Invalid username or password" };
-    }
-
-    window.hybridLogin = async function(username, password) {
-        if (!username || !password) {
-            showToast("Username dan password wajib diisi", "warning");
-            return false;
-        }
-
-        detectMode();
-        await checkOnline();
-
-        if (currentMode === "DEMO") {
-            showToast("DEMO MODE: Tidak perlu login", "warning");
-            return false;
-        }
-
-        if (currentMode === "PRO" && onlineStatus) {
-            const result = await serverLogin(username, password);
-            if (result.success) {
-                showToast(`✅ Login berhasil (ONLINE) - ${result.role}`, "success");
-                return true;
-            }
-            showToast(result.error || "Login gagal", "error");
-            return false;
-        }
-
-        if (currentMode === "PRO" && !onlineStatus) {
-            const cached = localStorage.getItem("vms_last_valid_session");
-            if (cached) {
-                const session = JSON.parse(cached);
-                if (session.username === username && (Date.now() - session.timestamp) < 86400000) {
-                    localStorage.setItem("vms_user", JSON.stringify({ username: session.username, role: session.role }));
-                    localStorage.setItem("vms_role", session.role);
-                    if (session.token) localStorage.setItem("vms_token", session.token);
-                    showToast(`⚠️ OFFLINE MODE - Menggunakan session cached: ${username}`, "warning");
-                    return true;
-                }
-            }
-            showToast("❌ OFFLINE MODE - Tidak ada session valid. Koneksikan internet untuk login PRO.", "error");
-            return false;
-        }
-
-        if (currentMode === "BASIC") {
-            const result = await localLogin(username, password);
-            if (result.success) {
-                showToast(`✅ Login berhasil (LOCAL) - ${result.role}`, "success");
-                return true;
-            }
-            showToast(result.error || "Login gagal", "error");
-            return false;
-        }
-
-        return false;
-    };
-
-    window.hybridLogout = function() {
-        localStorage.removeItem("vms_token");
-        localStorage.removeItem("vms_user");
-        localStorage.removeItem("vms_role");
-        
-        detectMode();
-        
-        const loginOverlay = document.getElementById("loginOverlay");
-        const appLayout = document.getElementById("appLayout");
-        
-        if (currentMode === "PRO") {
-            if (loginOverlay) loginOverlay.style.display = "flex";
-            if (appLayout) appLayout.style.display = "none";
-        } else {
-            if (loginOverlay) loginOverlay.style.display = "none";
-            if (appLayout) appLayout.style.display = "flex";
-        }
-        
-        showToast("Logged out", "info");
-        if (window.renderDashboard) window.renderDashboard();
-        if (window.renderLogTable) window.renderLogTable();
-    };
-
-    async function validateSession() {
-        const userStr = localStorage.getItem("vms_user");
-        if (!userStr) return false;
-        
-        detectMode();
-        
-        if (currentMode === "DEMO") {
-            if (!localStorage.getItem("vms_user")) {
-                localStorage.setItem("vms_user", JSON.stringify({ username: "demo", role: "OPERATOR" }));
-                localStorage.setItem("vms_role", "OPERATOR");
-            }
-            return true;
-        }
-        
-        if (currentMode === "PRO" && onlineStatus) {
-            const token = localStorage.getItem("vms_token");
-            if (token) {
-                try {
-                    const res = await fetch(CLOUD_URL + "/users", { headers: { "x-token": token } });
-                    if (res.ok) return true;
-                    localStorage.removeItem("vms_token");
-                    localStorage.removeItem("vms_user");
-                    localStorage.removeItem("vms_role");
-                    return false;
-                } catch {
-                    const cached = localStorage.getItem("vms_last_valid_session");
-                    if (cached) {
-                        const session = JSON.parse(cached);
-                        if (Date.now() - session.timestamp < 86400000) return true;
-                    }
-                    return false;
-                }
-            }
-            return false;
-        }
-        
-        return true;
-    }
-
-    window.hybridInitSession = async function() {
-        detectMode();
-        await checkOnline();
-        
-        const loginOverlay = document.getElementById("loginOverlay");
-        const appLayout = document.getElementById("appLayout");
-        
-        if (currentMode === "DEMO") {
-            if (loginOverlay) loginOverlay.style.display = "none";
-            if (appLayout) appLayout.style.display = "flex";
-            if (!localStorage.getItem("vms_user")) {
-                localStorage.setItem("vms_user", JSON.stringify({ username: "demo", role: "OPERATOR" }));
-                localStorage.setItem("vms_role", "OPERATOR");
-            }
-            if (window.updateUserUI) window.updateUserUI();
-            if (window.renderDashboard) window.renderDashboard();
-            if (window.renderLogTable) window.renderLogTable();
-            return true;
-        }
-        
-        if (currentMode === "BASIC") {
-            if (loginOverlay) loginOverlay.style.display = "none";
-            if (appLayout) appLayout.style.display = "flex";
-            const savedUser = localStorage.getItem("vms_user");
-            if (savedUser) {
-                const user = JSON.parse(savedUser);
-                localStorage.setItem("vms_role", user.role);
-                if (window.updateUserUI) window.updateUserUI();
-            }
-            if (window.renderDashboard) window.renderDashboard();
-            if (window.renderLogTable) window.renderLogTable();
-            return true;
-        }
-        
-        if (currentMode === "PRO") {
-            const isValid = await validateSession();
-            if (isValid) {
-                if (loginOverlay) loginOverlay.style.display = "none";
-                if (appLayout) appLayout.style.display = "flex";
-                if (window.updateUserUI) window.updateUserUI();
-                if (window.renderDashboard) window.renderDashboard();
-                if (window.renderLogTable) window.renderLogTable();
-                return true;
-            } else {
-                if (loginOverlay) loginOverlay.style.display = "flex";
-                if (appLayout) appLayout.style.display = "none";
-                return false;
-            }
-        }
-        
-        return false;
-    };
-
-    function overrideLoginButton() {
-        const doLoginBtn = document.getElementById("doLoginBtn");
-        if (doLoginBtn && !doLoginBtn._hybridOverridden) {
-            doLoginBtn._hybridOverridden = true;
-            doLoginBtn.onclick = async () => {
-                const username = document.getElementById("loginUsername")?.value || "";
-                const password = document.getElementById("loginPassword")?.value || "";
-                const success = await window.hybridLogin(username, password);
-                if (success) {
-                    const loginOverlay = document.getElementById("loginOverlay");
-                    const appLayout = document.getElementById("appLayout");
-                    if (loginOverlay) loginOverlay.style.display = "none";
-                    if (appLayout) appLayout.style.display = "flex";
-                    if (window.renderDashboard) window.renderDashboard();
-                    if (window.renderLogTable) window.renderLogTable();
-                    if (window.updateUserUI) window.updateUserUI();
-                }
+        if (res.visitors) {
+            window.patrolData = {
+                ...(window.patrolData || {}),
+                ...res.visitors
             };
         }
-    }
 
-    function overrideLogoutButtons() {
-        document.querySelectorAll("#logoutBtnTop, #logoutBtnSidebar").forEach(btn => {
-            if (!btn._hybridOverridden) {
-                btn._hybridOverridden = true;
-                btn.onclick = () => window.hybridLogout();
-            }
-        });
-    }
-
-    function addStatusIndicator() {
-        if (document.getElementById("hybridStatusIndicator")) return;
-        
-        const indicator = document.createElement("div");
-        indicator.id = "hybridStatusIndicator";
-        indicator.style.cssText = `
-            position: fixed; bottom: 10px; right: 10px; z-index: 9999;
-            background: rgba(0,0,0,0.8); color: white; padding: 4px 12px;
-            border-radius: 20px; font-size: 10px; font-family: monospace;
-            pointer-events: none; backdrop-filter: blur(4px);
-        `;
-        document.body.appendChild(indicator);
-        
-        async function updateIndicator() {
-            const mode = detectMode();
-            await checkOnline();
-            const icon = onlineStatus ? "🟢" : "🟡";
-            const modeIcon = mode === "PRO" ? "🔴" : (mode === "BASIC" ? "🔵" : "🟠");
-            indicator.innerHTML = `${icon} ${modeIcon} ${mode} | ${onlineStatus ? "ONLINE" : "OFFLINE"}`;
-        }
-        
-        updateIndicator();
-        setInterval(updateIndicator, 10000);
-    }
-
-    async function safeForceInit() {
-        if (!onlineStatus) return;
-        try {
-            const res = await fetch(CLOUD_URL + "/force-init", { method: "POST" });
-            const data = await res.json();
-            if (data.ok) console.log("Force init completed");
-        } catch (e) {
-            console.warn("Force init skipped:", e.message);
-        }
-    }
-
-    function monitorOnlineStatus() {
-        window.addEventListener("online", async () => {
-            await checkOnline();
-            await syncUsersToServer();
-            await window.hybridInitSession();
-            showToast("🟢 Kembali ONLINE - Sinkronisasi data", "success");
-            if (window.renderDashboard) window.renderDashboard();
-            if (window.renderLogTable) window.renderLogTable();
-        });
-        
-        window.addEventListener("offline", async () => {
-            await checkOnline();
-            showToast("🟡 MODE OFFLINE - Menggunakan data lokal", "warning");
-        });
-    }
-
-    async function start() {
-        await ensureDefaultAdmin();
-        await checkOnline();
-        await safeForceInit();
-        await syncUsersToServer();
-        await window.hybridInitSession();
-        
-        addStatusIndicator();
-        overrideLoginButton();
-        overrideLogoutButtons();
-        monitorOnlineStatus();
-        
-        setInterval(async () => {
-            await checkOnline();
-            if (onlineStatus) await syncUsersToServer();
-        }, 30000);
-    }
-    
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", start);
-    } else {
-        start();
-    }
-})();
-</script>
-
-<!-- ================= LICENSE CLIENT PATCH ================= -->
-<script>
-(function(){
- if(window.__LICENSE_SYSTEM__) return;
- window.__LICENSE_SYSTEM__ = true;
-
- function askLicense(){
-  let license = localStorage.getItem("vms_license_key");
-
-  if(!license){
-   license = prompt("Masukkan LICENSE KEY dari ADMIN:");
-   if(license){
-    localStorage.setItem("vms_license_key", license);
-   }
-  }
-
-  return license;
- }
-
- const originalFetch = window.fetch;
-
- window.fetch = async function(url, options={}){
-  try{
-   if(typeof url === "string" && url.includes("/save") && options.body){
-
-    let body = JSON.parse(options.body);
-
-    body.license = askLicense();
-
-    options.body = JSON.stringify(body);
-   }
-  }catch(e){
-   console.warn("License inject skip", e);
-  }
-
-  return originalFetch(url, options);
- };
-
-})();
-</script>
-
-<!-- ================= DEVICE IDENTITY SYSTEM ================= -->
-<script>
-(function(){
- if(window.__DEVICE_IDENTITY__) return;
- window.__DEVICE_IDENTITY__ = true;
-
- const KEY = "device_meta";
-
- function createForm(){
-  const box = document.createElement("div");
-  box.id = "deviceIdentityBox";
-  box.style.cssText = `
-   position:fixed;top:0;left:0;width:100%;height:100%;
-   background:rgba(0,0,0,0.9);
-   display:flex;align-items:center;justify-content:center;
-   z-index:99999;
-  `;
-
-  box.innerHTML = `
-   <div style="background:#020617;padding:20px;border-radius:12px;width:300px;color:#fff;">
-    <h3>🔐 Setup Device</h3>
-    <input id="meta_company" placeholder="Company" style="width:100%;margin:5px 0;">
-    <input id="meta_site" placeholder="Site" style="width:100%;margin:5px 0;">
-    <input id="meta_name" placeholder="Device Name" style="width:100%;margin:5px 0;">
-    <input id="meta_pic" placeholder="PIC" style="width:100%;margin:5px 0;">
-    <input id="meta_phone" placeholder="Phone" style="width:100%;margin:5px 0;">
-    <button id="saveMetaBtn" style="width:100%;margin-top:10px;">SAVE</button>
-   </div>
-  `;
-
-  document.body.appendChild(box);
-
-  document.getElementById("saveMetaBtn").onclick = () => {
-   const meta = {
-    company: document.getElementById("meta_company").value,
-    site: document.getElementById("meta_site").value,
-    device_name: document.getElementById("meta_name").value,
-    pic: document.getElementById("meta_pic").value,
-    phone: document.getElementById("meta_phone").value
-   };
-
-   localStorage.setItem(KEY, JSON.stringify(meta));
-   box.remove();
-  };
- }
-
- function ensureMeta(){
-  const existing = localStorage.getItem(KEY);
-  if(!existing){
-   createForm();
-  }
- }
-
- window.getDeviceMeta = function(){
-  return JSON.parse(localStorage.getItem(KEY) || "{}");
- };
-
- ensureMeta();
-
-})();
-</script>
-
-<!-- ================= VMS HARDENING INJECTION ================= -->
-<script>
-(function(){
-
-console.log("[VMS HARDENING] INIT...");
-
-if (window.apiCall) {
-    const __old_apiCall = window.apiCall;
-
-    window.apiCall = async function(endpoint, options = {}) {
-        if (!navigator.onLine) {
-            console.warn("[API] Offline mode");
-            return null;
+        if (res.logs) {
+            window.activityLogs = [
+                ...res.logs,
+                ...(window.activityLogs || [])
+            ];
         }
 
-        try {
-            return await __old_apiCall(endpoint, options);
-        } catch (e) {
-            console.error("[API ERROR]", endpoint, e);
-            return null;
-        }
-    };
-}
+        vms_lastSync = res.serverTime;
 
-if (window.loadDevices) {
-    const __old_loadDevices = window.loadDevices;
+        console.log("[VMS] SYNC OK");
 
-    window.loadDevices = async function () {
-        try {
-            const licenseKey = localStorage.getItem("vms_license_key");
-            if (!licenseKey) return __old_loadDevices();
-
-            const res = await fetch(API_URL + "/client/devices", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ licenseKey })
-            });
-
-            if (!res.ok) throw new Error("Server error");
-
-            const data = await res.json();
-
-            if (data.devices && data.devices.length > 0) {
-                if (typeof devicesData !== "undefined") {
-                    devicesData = data.devices;
-                }
-
-                localStorage.setItem("vms_devices", JSON.stringify(data.devices));
-
-                if (typeof renderDevicesList === "function") renderDevicesList();
-                if (typeof updateDeviceSelects === "function") updateDeviceSelects();
-                if (typeof updateStats === "function") updateStats();
-
-                return;
-            }
-
-        } catch (e) {
-            console.warn("[SYNC FALLBACK LOCAL]", e.message);
-        }
-
-        return __old_loadDevices();
-    };
-}
-
-if (window.syncToCloud) {
-    const __old_sync = window.syncToCloud;
-
-    window.syncToCloud = async function(payload){
-        if (window.__sync_lock) {
-            console.warn("[SYNC BLOCKED]");
-            return;
-        }
-
-        window.__sync_lock = true;
-
-        try {
-            return await __old_sync(payload);
-        } catch(e){
-            console.warn("[SYNC ERROR]", e);
-        } finally {
-            setTimeout(()=>{
-                window.__sync_lock = false;
-            }, 1000);
-        }
-    };
-}
-
-window.safeFetch = async function(url, options = {}) {
-    try {
-        const res = await fetch(url, options);
-        if (!res.ok) throw new Error(res.status);
-        return await res.json();
     } catch (e) {
-        console.warn("[SAFE FETCH ERROR]", url, e.message);
-        return null;
+        console.error("SYNC ERROR", e);
     }
-};
 
-console.log("[VMS HARDENING] READY ✅");
+    vms_syncLock = false;
+}
 
-})();
-</script>
+async function vms_push() {
+    try {
+        const licenseKey = localStorage.getItem("licenseKey");
+        if (!licenseKey) return;
 
+        await VMS_API.save(
+            licenseKey,
+            vms_deviceId,
+            window.patrolData || {},
+            window.activityLogs || []
+        );
+
+        console.log("[VMS] PUSH OK");
+
+    } catch (e) {
+        console.error("PUSH ERROR", e);
+    }
+}
+
+// AUTO START
+setTimeout(vms_init, 1000);
 </body>
 </html>
