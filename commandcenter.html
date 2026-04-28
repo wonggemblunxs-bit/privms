@@ -1175,7 +1175,7 @@
     }
 
     async function doLogin() {
-        const username = document.getElementById("loginUser").value.trim();
+        const username = document.getElementById("l").value.trim();
         const password = document.getElementById("loginPass").value;
 
         if (!username || !password) {
@@ -2239,19 +2239,20 @@
 
     init();
 </script>
-    <script>
+<script>
 window.doLogin = async function () {
-    const inputs = document.querySelectorAll("input");
+    const usernameEl = document.getElementById("loginUsername");
+    const passwordEl = document.getElementById("loginPassword");
 
-    console.log("ALL INPUTS:", inputs);
+    console.log("DEBUG EL:", usernameEl, passwordEl);
 
-    if (inputs.length < 2) {
-        alert("Input tidak ditemukan");
+    if (!usernameEl || !passwordEl) {
+        alert("Input login tidak ditemukan");
         return;
     }
 
-    const username = inputs[0].value.trim();
-    const password = inputs[1].value.trim();
+    const username = usernameEl.value.trim();
+    const password = passwordEl.value.trim();
 
     console.log("VALUE:", username, password);
 
