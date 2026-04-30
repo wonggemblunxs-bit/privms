@@ -2,1627 +2,673 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <title>VMS SAPAM MEDED | Enterprise Hardened System</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>VMS Enterprise - Visitor Management System</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-    <script src="api.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #f0f2f5; font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; color: #1a2c3e; }
-        :root { --primary: #1f4e4a; }
-        .app-layout { display: flex; min-height: 100vh; }
-        .sidebar { width: 280px; background: #0f2c2c; color: #e2e8f0; position: fixed; height: 100vh; overflow-y: auto; z-index: 20; }
-        .logo-area { padding: 28px 24px; border-bottom: 1px solid rgba(255,255,255,0.1); }
-        .logo-area h1 { font-size: 1.6rem; font-weight: 600; color: white; }
-        .logo-area p { font-size: 0.7rem; color: #8ea5a5; margin-top: 6px; }
-        .nav-item { display: flex; align-items: center; gap: 14px; padding: 12px 24px; margin: 4px 12px; border-radius: 14px; color: #cbdcd9; font-weight: 500; cursor: pointer; }
-        .nav-item.active { background: #2b5a55; color: white; }
-        .main-content { flex: 1; margin-left: 280px; padding: 24px 32px; width: calc(100% - 280px); }
-        .mobile-header { display: none; background: #0f2c2c; padding: 16px 20px; color: white; align-items: center; justify-content: space-between; }
-        .menu-toggle { background: none; border: none; font-size: 1.8rem; color: white; cursor: pointer; }
-        .mobile-sidebar { position: fixed; top: 0; left: -280px; width: 260px; height: 100%; background: #0f2c2c; z-index: 200; transition: 0.2s; padding-top: 20px; }
-        .mobile-sidebar.open { left: 0; }
-        .overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); z-index: 199; display: none; }
-        .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px; margin-bottom: 36px; }
-        .stat-card { background: white; border-radius: 24px; padding: 22px 20px; border: 1px solid #e2edf2; }
-        .stat-card h4 { font-size: 0.7rem; text-transform: uppercase; color: #5f7f7c; margin-bottom: 12px; }
-        .stat-number { font-size: 2.2rem; font-weight: 700; color: #1f4e4a; }
-        .form-card { background: white; border-radius: 28px; padding: 28px 30px; border: 1px solid #e7edf2; margin-bottom: 28px; }
-        .grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px 32px; }
-        .input-field { display: flex; flex-direction: column; gap: 6px; }
-        .input-field label { font-size: 0.7rem; font-weight: 600; color: #2b5a55; text-transform: uppercase; }
-        input, select { padding: 12px 14px; border-radius: 18px; border: 1px solid #d4e0e5; font-size: 0.9rem; }
-        button { background: #1f4e4a; border: none; padding: 10px 24px; border-radius: 40px; color: white; font-weight: 600; cursor: pointer; transition: 0.2s; }
-        button:disabled { opacity: 0.6; cursor: not-allowed; }
-        .btn-outline { background: white; border: 1px solid #cbd5e1; color: #1f4e4a; }
-        .badge { display: inline-block; padding: 4px 12px; border-radius: 40px; font-size: 0.7rem; font-weight: 600; }
-        .badge-VVIP { background: #fde68a; color: #92400e; }
-        .badge-VIP { background: #e2e8f0; color: #334155; }
-        .badge-UMUM { background: #d1fae5; color: #065f46; }
-        .toast-msg { position: fixed; bottom: 24px; right: 24px; background: #1e293b; color: white; padding: 10px 20px; border-radius: 40px; z-index: 1000; font-size: 0.8rem; animation: fadeIn 0.2s; }
-        .toast-msg.success { background: #1f4e4a; }
-        .toast-msg.error { background: #b91c1c; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateX(20px); } to { opacity: 1; transform: translateX(0); } }
-        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 3000; visibility: hidden; opacity: 0; transition: 0.2s; }
-        .modal-overlay.active { visibility: visible; opacity: 1; }
-        .modal-card { background: white; width: 480px; max-width: 90%; border-radius: 32px; padding: 28px; }
-        .qr-preview { width: 120px; margin: 16px auto; display: block; }
-        .flex-btns { display: flex; gap: 12px; margin-top: 20px; }
-        .loader { display: inline-block; width: 16px; height: 16px; border: 2px solid white; border-top: 2px solid transparent; border-radius: 50%; animation: spin 0.6s linear infinite; margin-left: 8px; vertical-align: middle; }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        .tab-pane { display: none; }
-        .tab-pane.active-pane { display: block; animation: fade 0.2s; }
-        @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
-        .table-wrap { overflow-x: auto; border-radius: 20px; }
+        body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+        .license-info { background: rgba(255,255,255,0.2); padding: 8px 15px; border-radius: 20px; font-size: 12px; }
+        .mode-indicator { position: fixed; bottom: 10px; right: 10px; background: rgba(0,0,0,0.7); color: white; padding: 5px 10px; border-radius: 20px; font-size: 10px; z-index: 999; cursor: pointer; }
+        .tabs { display: flex; background: white; padding: 0 20px; gap: 5px; overflow-x: auto; border-bottom: 2px solid #e0e0e0; }
+        .tab-btn { padding: 15px 25px; background: none; border: none; cursor: pointer; font-size: 16px; font-weight: 500; color: #666; }
+        .tab-btn.active { color: #667eea; border-bottom: 3px solid #667eea; }
+        .tab-content { display: none; padding: 20px; max-width: 1400px; margin: 0 auto; }
+        .tab-content.active { display: block; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .stat-card { background: white; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .stat-card h3 { font-size: 14px; color: #666; }
+        .stat-card .value { font-size: 32px; font-weight: bold; color: #667eea; }
+        .form-card { background: white; border-radius: 15px; padding: 25px; margin-bottom: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: flex; gap: 15px; margin-bottom: 15px; }
+        .form-row .form-group { flex: 1; margin-bottom: 0; }
+        label { display: block; margin-bottom: 5px; color: #666; font-weight: 500; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; }
+        button { background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: 500; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-danger { background: #dc3545; }
+        .btn-success { background: #28a745; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .qr-container { display: flex; justify-content: center; align-items: center; flex-direction: column; padding: 20px; background: white; border-radius: 15px; }
+        #qrcode { padding: 20px; background: white; border-radius: 10px; }
+        #scanner-container { width: 100%; max-width: 500px; margin: 0 auto; }
+        #preview { width: 100%; border-radius: 15px; overflow: hidden; }
+        .table-container { background: white; border-radius: 15px; overflow-x: auto; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
         table { width: 100%; border-collapse: collapse; }
-        th { text-align: left; padding: 14px 16px; background: #f8fafc; color: #1f4e4a; border-bottom: 1px solid #e2e8f0; }
-        td { padding: 12px 16px; border-bottom: 1px solid #edf2f7; }
-        #cameraPreview { width: 100%; max-width: 500px; background: #000; border-radius: 24px; overflow: hidden; min-height: 200px; }
-        .sync-status { position: fixed; bottom: 10px; left: 10px; background: rgba(0,0,0,0.7); color: #0f0; padding: 4px 12px; border-radius: 20px; font-size: 10px; font-family: monospace; z-index: 9999; }
-        .sync-status.syncing { color: #ff0; }
-        .sync-status.error { color: #f00; }
-        @media (max-width: 780px) {
-            .sidebar { display: none; }
-            .mobile-header { display: flex; }
-            .main-content { margin-left: 0; width: 100%; padding: 16px; }
-            .grid-2 { grid-template-columns: 1fr; }
-        }
-        .error-fallback { background: #fef2f2; border: 1px solid #fecaca; border-radius: 16px; padding: 20px; text-align: center; color: #991b1b; margin: 20px; }
-        .user-badge { background: #e2e8f0; border-radius: 40px; padding: 6px 16px; font-size: 0.75rem; margin-left: 16px; font-weight: 600; color: #1f4e4a; display: inline-flex; align-items: center; gap: 8px; }
-        .site-selector-wrap { margin-bottom: 20px; background: white; border-radius: 28px; padding: 8px 20px; display: flex; align-items: center; gap: 16px; flex-wrap: wrap; border: 1px solid #e2edf2; }
-        .site-selector-wrap label { font-weight: 600; color: #2b5a55; font-size: 0.8rem; }
-        #siteSelector { width: auto; min-width: 140px; }
-        .logout-btn { background: #b91c1c; padding: 6px 14px; font-size: 0.75rem; margin-left: auto; }
-        .admin-hide { display: none; }
-        .brand-preview { font-weight: 600; }
-        .license-badge { background: #fbbf24; color: #92400e; padding: 4px 12px; border-radius: 40px; font-size: 0.7rem; font-weight: 600; margin-left: 12px; }
-        .progress-bar-container { background: #e2e8f0; border-radius: 20px; height: 12px; overflow: hidden; margin: 16px 0; width: 100%; }
-        .progress-bar-fill { height: 100%; border-radius: 20px; transition: width 0.3s ease; background: #1f4e4a; }
-        .progress-bar-fill.warning { background: #f59e0b; }
-        .progress-bar-fill.critical { background: #ef4444; }
-        .limit-info { font-size: 0.75rem; color: #5f7f7c; margin-top: 4px; display: flex; justify-content: space-between; }
-        .monetization-badge { font-size: 0.7rem; font-weight: 600; margin-left: 8px; }
-        .vms-modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 10001; }
-        .vms-modal-card { background: white; border-radius: 28px; padding: 28px; width: 420px; max-width: 90%; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
-        .vms-modal-card h3 { margin-bottom: 20px; color: #1f4e4a; display: flex; align-items: center; gap: 8px; }
-        .vms-input-group { margin-bottom: 16px; }
-        .vms-input-group label { display: block; font-size: 0.7rem; font-weight: 600; color: #2b5a55; margin-bottom: 5px; text-transform: uppercase; }
-        .vms-input-group input, .vms-input-group select { width: 100%; padding: 12px; border-radius: 16px; border: 1px solid #d4e0e5; }
-        .vms-input-group input:disabled { background: #f3f4f6; color: #9ca3af; cursor: not-allowed; }
-        .vms-modal-buttons { display: flex; gap: 12px; margin-top: 24px; flex-wrap: wrap; }
-        .vms-upgrade-hint { background: #fef3c7; padding: 12px; border-radius: 16px; margin-top: 16px; font-size: 0.75rem; color: #92400e; display: flex; align-items: center; gap: 8px; }
-        .vms-upgrade-hint button { background: #f59e0b; padding: 6px 12px; font-size: 0.7rem; margin-left: auto; }
-        .vms-badge-locked { background: #fee2e2; color: #b91c1c; padding: 2px 8px; border-radius: 20px; font-size: 0.6rem; margin-left: 8px; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid #eee; }
+        th { background: #f8f9fa; font-weight: 600; }
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 1000; justify-content: center; align-items: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 25px; border-radius: 15px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+        .progress-bar { width: 100%; height: 8px; background: #e0e0e0; border-radius: 4px; overflow: hidden; margin: 10px 0; }
+        .progress-fill { height: 100%; background: #28a745; transition: width 0.3s; }
+        .progress-fill.warning { background: #ffc107; }
+        .progress-fill.danger { background: #dc3545; }
+        .site-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; }
+        .site-row input { flex: 1; }
+        .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: #333; color: white; padding: 12px 24px; border-radius: 8px; z-index: 2000; animation: fadeInOut 3s ease; }
+        @keyframes fadeInOut { 0% { opacity: 0; } 10% { opacity: 1; } 90% { opacity: 1; } 100% { opacity: 0; } }
+        @media (max-width: 768px) { .tab-btn { padding: 12px 15px; font-size: 14px; } .stats-grid { grid-template-columns: repeat(2, 1fr); } .form-row { flex-direction: column; } }
+        .badge-success { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .badge-danger { background: #dc3545; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .badge-gold { background: #ffd700; color: #333; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .badge-silver { background: #c0c0c0; color: #333; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .badge-green { background: #28a745; color: white; padding: 2px 8px; border-radius: 12px; font-size: 12px; }
+        .admin-only { display: none; }
+        .color-gold { background: #ffd700; }
+        .color-silver { background: #c0c0c0; }
+        .color-green { background: #28a745; }
     </style>
 </head>
 <body>
 
-<div id="temp-reader" style="display:none;"></div>
-
-<div class="mobile-header">
-    <button class="menu-toggle" id="mobileMenuBtn">☰</button>
-    <strong style="font-size: 1.2rem;" id="brandMobile" data-site="SITE_A">VMS SAPAM MEDED</strong>
-    <div style="width: 28px;"></div>
-</div>
-<div class="overlay" id="overlay"></div>
-<div class="mobile-sidebar" id="mobileSidebar">
-    <div class="logo-area"><h1 id="brandSidebar" data-site="SITE_A">VMS</h1><p>Access Control</p></div>
-    <div class="nav-item mobile-nav" data-tab="dashboard">📊 Dashboard</div>
-    <div class="nav-item mobile-nav" data-tab="register">📝 Register</div>
-    <div class="nav-item mobile-nav" data-tab="scanner">📷 Scanner</div>
-    <div class="nav-item mobile-nav" data-tab="logs">📜 Logs</div>
+<div class="header">
+    <h1>🏢 VMS Enterprise</h1>
+    <div class="license-info" id="licenseInfo">DEMO Mode | Visitors: <span id="visitorCount">0</span>/<span id="visitorLimit">∞</span> | Devices: <span id="deviceCount">0</span>/<span id="deviceLimit">1</span></div>
 </div>
 
-<div class="app-layout" id="appLayout" style="display: flex;">
-    <div class="sidebar">
-        <div class="logo-area"><h1 id="brandSidebarMain" data-site="SITE_A">VMS</h1><p>Enterprise Access</p></div>
-        <div class="nav-item active" data-tab="dashboard">📊 Dashboard</div>
-        <div class="nav-item" data-tab="register">📝 Register Visitor</div>
-        <div class="nav-item" data-tab="scanner">📷 Security Scan</div>
-        <div class="nav-item" data-tab="logs">📜 Audit Logs</div>
-        <div style="margin-top: 40px; padding: 20px; border-top: 1px solid rgba(255,255,255,0.1);">
-            <div class="site-selector-wrap" style="background: transparent; border: none; color: white; padding: 0;">
-                <label style="color:white;">🌍 Site</label>
-                <select id="siteSelector" style="background:#2b5a55; color:white; border-color:#4a7a76;">
-                    <option value="SITE_A" data-site-label="SITE_A">🏭 SITE A</option>
-                    <option value="SITE_B" data-site-label="SITE_B">🏢 SITE B</option>
-                    <option value="SITE_C" data-site-label="SITE_C">🏬 SITE C</option>
-                </select>
-                <div id="userInfoSidebar" class="user-badge" style="background:#2b5a55; color:white;"></div>
-                <button id="logoutBtnSidebar" class="btn-outline" style="margin-top:12px; background:#b91c1c; color:white; border:none;">Logout</button>
-            </div>
-        </div>
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('dashboard')">📊 Dashboard</button>
+    <button class="tab-btn" onclick="switchTab('register')">📝 Register</button>
+    <button class="tab-btn" onclick="switchTab('scanner')">📷 Scan QR</button>
+    <button class="tab-btn" onclick="switchTab('visitors')">👥 Visitors</button>
+    <button class="tab-btn" onclick="switchTab('logs')">📋 Logs</button>
+    <button class="tab-btn" onclick="switchTab('sites')">🏷️ Sites</button>
+    <button class="tab-btn" onclick="switchTab('devices')">📱 Devices</button>
+    <button class="tab-btn" onclick="switchTab('users')">👥 Users</button>
+</div>
+
+<!-- DASHBOARD TAB -->
+<div id="dashboardTab" class="tab-content active">
+    <div class="stats-grid">
+        <div class="stat-card"><h3>Today's Visitors</h3><div class="value" id="statTodayVisitors">0</div></div>
+        <div class="stat-card"><h3>Active Visitors</h3><div class="value" id="statActiveVisitors">0</div></div>
+        <div class="stat-card"><h3>Total Check-ins</h3><div class="value" id="statTotalCheckins">0</div></div>
+        <div class="stat-card"><h3>Total Check-outs</h3><div class="value" id="statTotalCheckouts">0</div></div>
     </div>
+    <div class="form-card"><h3>📈 Visitor Trend</h3><canvas id="trendChart" height="100"></canvas></div>
+    <div class="form-card"><h3>⚠️ License Status</h3><div id="licenseStatus"><p>Package: <strong id="packageName">DEMO</strong></p><div class="progress-bar"><div class="progress-fill" id="usageProgress" style="width: 0%"></div></div><p id="usageText">0 / Unlimited</p><p id="deviceUsageText">Devices: 0 / 1</p></div></div>
+</div>
 
-    <div class="main-content">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 12px;">
-            <div class="site-selector-wrap" style="background: white;">
-                <label>🌐 Active Site</label>
-                <select id="siteSelectorTop">
-                    <option value="SITE_A" data-site-label="SITE_A">🏭 SITE A</option>
-                    <option value="SITE_B" data-site-label="SITE_B">🏢 SITE B</option>
-                    <option value="SITE_C" data-site-label="SITE_C">🏬 SITE C</option>
-                </select>
-                <div id="userInfoTop" class="user-badge"></div>
-                <button id="logoutBtnTop" class="btn-outline" style="background:#b91c1c; color:white;">Logout</button>
-                <button id="vmsSiteEditBtn" onclick="vmsSite_open()" style="background:#0f2c2c; margin-left:8px;">⚙️ Rename Site</button>
-                <button id="manualSyncBtn" style="background:#0f2c2c;" onclick="manualSync()">🔄 Sync Now</button>
-            </div>
+<!-- REGISTER TAB dengan semua field point 2 -->
+<div id="registerTab" class="tab-content">
+    <div class="form-card">
+        <h3>📝 Register New Visitor</h3>
+        <div class="form-group"><label>Nama Lengkap *</label><input type="text" id="visitorName" placeholder="Nama lengkap"></div>
+        <div class="form-group"><label>Perusahaan *</label><input type="text" id="visitorCompany" placeholder="Nama perusahaan"></div>
+        <div class="form-group"><label>Kategori (Warna ID Card)</label><select id="visitorCategory"><option value="green">Hijau</option><option value="silver">Perak</option><option value="gold">Emas</option></select></div>
+        <div class="form-group"><label>Tujuan *</label><textarea id="visitorPurpose" rows="3" placeholder="Maksud dan tujuan kunjungan"></textarea></div>
+        <div class="form-row">
+            <div class="form-group"><label>PIC (Orang yang akan ditemui) *</label><input type="text" id="visitorPic" placeholder="Nama PIC"></div>
+            <div class="form-group"><label>Department *</label><input type="text" id="visitorDepartment" placeholder="Bagian / Jabatan"></div>
         </div>
-
-        <div id="licenseBox" style="background:white; border-radius:20px; padding:16px; margin-bottom:16px; border:1px solid #e2e8f0; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
-            <input type="text" id="licenseInput" placeholder="Masukkan license key..." style="flex:1;">
-            <button id="submitLicenseBtn">Aktivasi License</button>
-            <div id="licenseStatusBadge" class="license-badge">DEMO MODE</div>
+        <div class="form-row">
+            <div class="form-group"><label>Start Date *</label><input type="date" id="visitorStartDate"></div>
+            <div class="form-group"><label>Expired Date *</label><input type="date" id="visitorExpiredDate"></div>
         </div>
-
-        <div id="monetizationProgressCard" style="background:white; border-radius:20px; padding:16px; margin-bottom:16px; border:1px solid #e2e8f0;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <span style="font-weight:600; font-size:0.8rem;">📊 Visitor Usage Limit</span>
-                <span id="visitorLimitText" style="font-size:0.7rem; color:#5f7f7c;">0 / Unlimited</span>
-            </div>
-            <div class="progress-bar-container">
-                <div id="visitorProgressBar" class="progress-bar-fill" style="width:0%"></div>
-            </div>
-            <div id="visitorLimitWarning" class="limit-info"></div>
-        </div>
-
-        <div id="dashboardPane" class="tab-pane active-pane">
-            <div class="stats-row" id="statsWidget"></div>
-            <div class="form-card"><canvas id="trendChart" height="90"></canvas></div>
-            <div class="form-card"><canvas id="categoryChart" height="90"></canvas></div>
-        </div>
-
-        <div id="registerPane" class="tab-pane">
-            <div class="form-card">
-                <div class="grid-2">
-                    <div class="input-field"><label>Full name</label><input type="text" id="regName" placeholder="John Carter"></div>
-                    <div class="input-field"><label>Company</label><input type="text" id="regCompany" placeholder="PT Nusantara"></div>
-                    <div class="input-field"><label>Category</label><select id="regCategory"><option value="UMUM">UMUM</option><option value="VIP">VIP</option><option value="VVIP">VVIP</option></select></div>
-                    <div class="input-field"><label>Purpose</label><select id="regPurpose"><option>Meeting</option><option>Interview</option><option>Service</option><option>Lainnya</option></select><input type="text" id="regCustomPurpose" placeholder="Other purpose" style="margin-top:8px;"></div>
-                    <div class="input-field"><label>PIC</label><input type="text" id="regPic" placeholder="Budi Santoso"></div>
-                    <div class="input-field"><label>Department</label><input type="text" id="regDept" placeholder="IT / HR"></div>
-                    <div class="input-field"><label>Start date</label><input type="date" id="regStartDate"></div>
-                    <div class="input-field"><label>Expired date</label><input type="date" id="regExpDate"></div>
-                    <div class="input-field"><label>Photo (optional)</label><input type="file" id="regPhotoFile" accept="image/*"><img id="previewPhotoThumb" width="50" style="margin-top:8px; border-radius:12px;"></div>
-                </div>
-                <div style="display:flex; gap: 16px; margin-top: 24px; flex-wrap:wrap;">
-                    <button id="walkinBtn">⚡ Walk-in Cepat</button>
-                    <button id="generateQRBtn">🔐 Generate QR & Register</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="scannerPane" class="tab-pane">
-            <div class="form-card">
-                <div style="display:flex; gap: 12px; flex-wrap:wrap; margin-bottom:20px;">
-                    <select id="scanMode"><option value="CHECK_IN">CHECK-IN</option><option value="CHECK_OUT">CHECK-OUT</option></select>
-                    <button id="startCamBtn">📷 Start Camera</button>
-                    <button id="stopCamBtn" class="btn-outline">Stop</button>
-                    <button id="uploadQrBtn">🖼️ Upload QR</button>
-                    <input type="file" id="uploadQrFile" accept="image/*" style="display:none">
-                </div>
-                <div id="cameraPreview"></div>
-                <div class="input-field" style="margin-top:24px;"><label>Manual REG Number</label><input type="text" id="manualReg" placeholder="REG2026xxxx"><button id="manualProcess" style="margin-top:8px;">Proses</button></div>
-            </div>
-        </div>
-
-        <div id="logsPane" class="tab-pane">
-            <div class="form-card">
-                <div style="display:flex; flex-wrap:wrap; gap:10px; margin-bottom:24px;">
-                    <input type="text" id="searchLog" placeholder="Cari Nama / REG" style="width:200px;">
-                    <button id="refreshLogsBtn">Refresh</button>
-                    <button id="selectAllBtn">Select all</button>
-                    <button id="deselectAllBtn">Deselect</button>
-                    <button id="deleteSelectedBtn" style="background:#b91c1c;" class="admin-only">Hapus terpilih</button>
-                    <button id="deleteAllBtn" style="background:#b91c1c;" class="admin-only">Hapus semua</button>
-                    <button id="exportExcelAction">Export Excel</button>
-                    <button id="backupAction">Backup</button>
-                    <button id="resetDatabaseAction" style="background:#92400e;" class="admin-only">Reset DB</button>
-                </div>
-                <div class="table-wrap">
-                    <table id="logTable">
-                        <thead><tr><th><input type="checkbox" id="checkAllMaster"></th><th>REG</th><th>Nama</th><th>Perusahaan</th><th>Kategori</th><th>Aksi</th><th>Waktu</th><th>Site</th><th>PDF</th></tr></thead>
-                        <tbody id="logTableBody"></tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
+        <div class="form-group"><label>Site</label><select id="visitorSite"></select></div>
+        <div class="form-group"><button type="button" class="btn-warning" onclick="capturePhoto()">📸 Take Photo</button><div id="photoPreview" style="margin-top: 10px;"></div></div>
+        <button id="registerBtn" onclick="canRegister() ? generateQRAndRegister() : null">🔲 Generate QR Code & Register</button>
+    </div>
+    <div class="qr-container" id="qrContainer" style="display: none;">
+        <div id="qrcode"></div>
+        <button onclick="downloadBadgePDF()" class="btn-success" style="margin-top: 15px;">🪪 Download Badge PDF</button>
+        <button onclick="showPreview()" style="margin-top: 10px;">👁️ Preview Badge</button>
     </div>
 </div>
 
-<div id="vmsSiteModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); backdrop-filter:blur(4px); align-items:center; justify-content:center; z-index:10001;">
-    <div style="background:white; border-radius:28px; padding:28px; width:420px; max-width:90%;">
-        <h3 style="margin-bottom:20px; color:#1f4e4a; display:flex; align-items:center; gap:8px;">
-            ⚙️ Edit Site Names
-            <span id="vmsPackageBadge" style="font-size:0.6rem; background:#e2e8f0; padding:2px 8px; border-radius:20px;">DEMO</span>
-        </h3>
-        <div class="vms-input-group">
-            <label>🏭 SITE A <span id="vmsLockA" class="vms-badge-locked" style="display:none;">🔒</span></label>
-            <input type="text" id="vmsA" placeholder="SITE A" data-site-key="SITE_A">
-        </div>
-        <div class="vms-input-group">
-            <label>🏢 SITE B <span id="vmsLockB" class="vms-badge-locked" style="display:none;">🔒</span></label>
-            <input type="text" id="vmsB" placeholder="SITE B" data-site-key="SITE_B">
-        </div>
-        <div class="vms-input-group">
-            <label>🏬 SITE C <span id="vmsLockC" class="vms-badge-locked" style="display:none;">🔒</span></label>
-            <input type="text" id="vmsC" placeholder="SITE C" data-site-key="SITE_C">
-        </div>
-        <div id="vmsDynamicSites"></div>
-        <div class="vms-modal-buttons">
-            <button id="vmsSaveBtn" style="background:#1f4e4a;" onclick="vmsSite_submit()">💾 Save Changes</button>
-            <button id="vmsAddSiteBtn" style="background:#0f2c2c;" onclick="vmsSite_add()">➕ Add Site</button>
-            <button id="vmsCloseBtn" class="btn-outline" onclick="vmsSite_close()">Cancel</button>
-        </div>
-        <div id="vmsUpgradeHint" class="vms-upgrade-hint" style="display:none;">
-            <span>💡</span> <span id="vmsUpgradeMessage">Upgrade ke PRO untuk unlock semua fitur</span>
-            <button id="vmsUpgradeBtn" style="background:#f59e0b; padding:4px 12px; font-size:0.7rem;" onclick="vmsSite_upgradePrompt()">Upgrade Now</button>
-        </div>
+<!-- SCANNER TAB -->
+<div id="scannerTab" class="tab-content">
+    <div class="form-card"><h3>📷 Scan QR Code</h3><div id="scanner-container"><div id="preview"></div><div style="display: flex; gap: 10px; margin-top: 15px;"><button onclick="startScanner()" id="startScannerBtn">▶️ Start</button><button onclick="stopScanner()" id="stopScannerBtn" disabled>⏹️ Stop</button></div><div id="scanResult" style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 8px;"></div></div></div>
+    <div class="form-card"><h3>🔄 Manual Check-in/out</h3><div class="form-group"><input type="text" id="manualQR" placeholder="Paste QR or Visitor ID"></div><div style="display: flex; gap: 10px;"><button onclick="manualCheckin()" class="btn-success">Check In</button><button onclick="manualCheckout()" class="btn-danger">Check Out</button></div></div>
+</div>
+
+<!-- VISITORS TAB (daftar semua visitor) -->
+<div id="visitorsTab" class="tab-content">
+    <div class="toolbar" style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap;">
+        <input type="text" id="visitorSearch" placeholder="Search..." style="flex:1; max-width: 300px;" onkeyup="renderVisitorsTable()">
+        <button onclick="exportVisitorsToExcel()" class="btn-success" id="exportExcelBtn">📎 Export Excel</button>
+    </div>
+    <div class="table-container">
+        <table id="visitorsTable">
+            <thead><tr><th>Nama</th><th>Perusahaan</th><th>Tujuan</th><th>PIC</th><th>Start Date</th><th>Expired Date</th><th>Jam Masuk</th><th>Jam Keluar</th><th>No Registrasi</th><th>Keterangan</th><th>Status</th></tr></thead>
+            <tbody></tbody>
+        </table>
     </div>
 </div>
 
-<div id="syncStatus" class="sync-status">🔄 Syncing...</div>
+<!-- LOGS TAB -->
+<div id="logsTab" class="tab-content">
+    <div class="table-container"><table id="logsTable"><thead><tr><th>Time</th><th>Visitor</th><th>Site</th><th>Type</th></tr></thead><tbody></tbody></table></div>
+</div>
+
+<!-- SITES TAB -->
+<div id="sitesTab" class="tab-content">
+    <div class="form-card"><h3>🏷️ Site Names</h3><div id="sitesList"></div><button onclick="vmsSite_open()" id="editSitesBtn">✏️ Edit Sites</button><p id="siteUpgradeMsg" style="color:#ffc107;margin-top:10px;display:none;">💡 BASIC: rename 3 sites | PRO: unlimited custom sites</p></div>
+    <div class="form-card"><h3>📍 Current Site Selection</h3><select id="siteSelector" onchange="setSite(this.value)"></select></div>
+</div>
+
+<!-- DEVICES TAB -->
+<div id="devicesTab" class="tab-content">
+    <div class="form-card"><h3>📱 Registered Devices</h3><div id="devicesList"></div><button onclick="requestNewDevice()" class="btn-warning">➕ Request New Device</button><div id="deviceRequestStatus"></div></div>
+</div>
+
+<!-- USERS TAB -->
+<div id="usersTab" class="tab-content">
+    <div class="form-card admin-only" id="adminOnlyPanel" style="display:none;"><h3>➕ Create User</h3><input type="text" id="newUsername" placeholder="Username"><input type="password" id="newPassword" placeholder="Password"><select id="newUserRole"><option value="OPERATOR">Operator</option><option value="SUPER_ADMIN">Super Admin</option></select><button onclick="createUser()">Create User</button></div>
+    <div class="table-container"><h3>👥 Users</h3><table id="usersTable"><thead><tr><th>Username</th><th>Role</th><th>Actions</th></tr></thead><tbody></tbody></table></div>
+    <div class="form-card"><h3>🔐 Login</h3><input type="text" id="loginUsername" placeholder="Username"><input type="password" id="loginPassword" placeholder="Password"><button onclick="hybridLogin()">Login</button><button onclick="hybridLogout()">Logout</button><div id="userInfo"></div></div>
+</div>
+
+<!-- SITE MODAL -->
+<div id="siteModal" class="modal"><div class="modal-content"><h3>Edit Site Names</h3><div id="siteModalList"></div><div id="customSiteModalList"></div><div id="addCustomSiteBtn" style="display:none;"><button onclick="vmsSite_add()">+ Add Custom Site</button></div><div style="display:flex;gap:10px;margin-top:20px;"><button onclick="vmsSite_submit()" class="btn-success">Save</button><button onclick="vmsSite_close()" class="btn-danger">Cancel</button></div></div></div>
+
+<!-- PDF PREVIEW MODAL -->
+<div id="pdfPreviewModal" class="modal"><div class="modal-content"><h3>Badge Preview</h3><div id="pdfPreviewContent"></div><button onclick="downloadBadgePDF()" class="btn-success">Download Badge</button><button onclick="closePdfPreview()" class="btn-danger">Close</button></div></div>
+
+<!-- DEVICE REQUEST MODAL -->
+<div id="deviceRequestModal" class="modal"><div class="modal-content"><h3>Request Additional Device</h3><p>Fee: <span id="deviceFee">Rp 50.000</span></p><button onclick="submitDeviceRequest()" class="btn-success">Submit Request</button><button onclick="closeDeviceRequestModal()" class="btn-danger">Cancel</button></div></div>
+
+<div class="mode-indicator" id="modeIndicator" onclick="vmsSite_upgradePrompt()"></div>
 
 <script>
-// ==================== KONFIGURASI ====================
-const CLOUD_URL = "https://privms.wonggemblunxs.workers.dev";
-
-
-// ==================== SINKRONISASI DATA DARI CLOUD (PULL) ====================
-let isSyncing = false;
-let lastSyncTime = localStorage.getItem("vms_last_sync") || 0;
-
-function updateSyncStatus(status, message) {
-    const el = document.getElementById("syncStatus");
-    if (!el) return;
-    if (status === "syncing") {
-        el.innerHTML = "🔄 " + message;
-        el.className = "sync-status syncing";
-    } else if (status === "success") {
-        el.innerHTML = "✅ " + message;
-        el.className = "sync-status";
-        setTimeout(() => { if(el.innerHTML === "✅ " + message) el.innerHTML = "☁️ Cloud Sync Active"; }, 3000);
-    } else if (status === "error") {
-        el.innerHTML = "❌ " + message;
-        el.className = "sync-status error";
-        setTimeout(() => { if(el.innerHTML === "❌ " + message) el.innerHTML = "☁️ Cloud Sync Active"; }, 3000);
-    } else {
-        el.innerHTML = message || "☁️ Cloud Sync Active";
-        el.className = "sync-status";
-    }
-}
-
-async function syncFromCloud() {
-    if (isSyncing) {
-        console.log("[SYNC] Already syncing, skip");
-        return;
-    }
-    
-    const licenseKey = localStorage.getItem("vms_license_key");
-    if (!licenseKey) {
-        updateSyncStatus("error", "No license key");
-        return;
-    }
-    
-    const deviceId = localStorage.getItem("deviceId");
-    if (!deviceId) return;
-    
-    isSyncing = true;
-    updateSyncStatus("syncing", "Fetching from cloud...");
-    
-    try {
-        const data = await VMS_API.sync(licenseKey, deviceId, lastSyncTime);
-        
-        if (!data.ok) {
-            throw new Error(data.error || "Sync failed");
-        }
-        
-        let newVisitorsCount = 0;
-        let newLogsCount = 0;
-        
-        if (data.visitors && typeof data.visitors === 'object') {
-            for (const [key, value] of Object.entries(data.visitors)) {
-                if (!window.visitors || !window.visitors[key]) {
-                    if (!window.visitors) window.visitors = {};
-                    window.visitors[key] = value;
-                    newVisitorsCount++;
-                } else if (value.updatedAt && window.visitors[key].updatedAt < value.updatedAt) {
-                    window.visitors[key] = value;
-                    newVisitorsCount++;
-                }
-            }
-        }
-        
-        if (data.logs && Array.isArray(data.logs) && data.logs.length > 0) {
-            const existingLogKeys = new Set();
-            if (window.logs && window.logs.length) {
-                window.logs.forEach(l => existingLogKeys.add(l.reg + l.action + l.time));
-            }
-            
-            for (const log of data.logs) {
-                const logKey = log.reg + log.action + log.time;
-                if (!existingLogKeys.has(logKey)) {
-                    if (!window.logs) window.logs = [];
-                    window.logs.unshift(log);
-                    newLogsCount++;
-                }
-            }
-            
-            if (window.logs && window.logs.length > 2000) {
-                window.logs = window.logs.slice(0, 2000);
-            }
-        }
-        
-        if (data.serverTime) {
-            lastSyncTime = data.serverTime;
-            localStorage.setItem("vms_last_sync", data.serverTime);
-        }
-        
-        if (typeof secureSave === 'function') {
-            await secureSave();
-        }
-        
-        if (newVisitorsCount > 0 || newLogsCount > 0) {
-            console.log(`[SYNC] Added ${newVisitorsCount} visitors, ${newLogsCount} logs from cloud`);
-            if (typeof renderDashboard === 'function') renderDashboard();
-            if (typeof renderLogTable === 'function') renderLogTable();
-            if (typeof updateMonetizationUI === 'function') updateMonetizationUI();
-            updateSyncStatus("success", `+${newVisitorsCount} visitor, +${newLogsCount} log`);
-        } else {
-            updateSyncStatus("success", "Up to date");
-        }
-        
-    } catch(e) {
-        console.error("[SYNC] Error:", e);
-        updateSyncStatus("error", e.message);
-    } finally {
-        isSyncing = false;
-    }
-}
-
-async function syncToCloud() {
-    const licenseKey = localStorage.getItem("vms_license_key");
-    if (!licenseKey) return;
-    
-    const deviceId = localStorage.getItem("deviceId");
-    if (!deviceId) return;
-    
-    try {
-        const payload = {
-            visitors: window.visitors || {},
-            logs: window.logs || [],
-            deviceId: deviceId,
-            deviceName: "VMS Device",
-            licenseKey: licenseKey,
-            site: localStorage.getItem("vms_site") || "SITE_A",
-            ts: Date.now()
-        };
-        
-        await VMS_API.save(licenseKey, deviceId, payload.visitors, payload.logs, payload.site);
-        
-        console.log("[SYNC] Data pushed to cloud");
-    } catch(e) {
-        console.warn("[SYNC_PUSH] Error:", e);
-    }
-}
-
-async function manualSync() {
-    if (isSyncing) {
-        if (typeof toast === 'function') toast("Sync already in progress...", "warning");
-        return;
-    }
-    if (typeof toast === 'function') toast("Starting manual sync...", "info");
-    await syncFromCloud();
-    await syncToCloud();
-}
-
-function startAutoSync() {
-    setInterval(() => { syncFromCloud(); }, 30000);
-    setInterval(() => { syncToCloud(); }, 15000);
-    window.addEventListener("online", () => {
-        console.log("[SYNC] Online - syncing...");
-        setTimeout(() => { syncFromCloud(); syncToCloud(); }, 1000);
-    });
-    setTimeout(() => { syncFromCloud(); }, 2000);
-    console.log("[SYNC] Auto-sync enabled (30s pull, 15s push)");
-}
-
-// ==================== vmsSite SYSTEM ====================
-const VMS_SITE_API_URL = CLOUD_URL;
-
-if (typeof window.vmsSiteData === 'undefined') {
-    window.vmsSiteData = {
-        names: { SITE_A: "SITE A", SITE_B: "SITE B", SITE_C: "SITE C" },
-        customSites: {}
-    };
-}
-
-function vmsSite_getCurrentPackage() {
-    return localStorage.getItem("vms_license") || "DEMO";
-}
-
-function vmsSite_setPackage(pkg) {
-    if (pkg) localStorage.setItem("vms_site_package", pkg);
-    const badge = document.getElementById("vmsPackageBadge");
-    if (badge) badge.innerText = pkg || "DEMO";
-}
-
-function vmsSite_reloadSafe() {
-    if (window._vmsSite_loading) return;
-    setTimeout(() => { vmsSite_load(); }, 200);
-}
-
-async function vmsSite_load() {
-    if (window._vmsSite_loading) return;
-    window._vmsSite_loading = true;
-    try {
-        const licenseKey = localStorage.getItem("vms_license_key");
-        if (!licenseKey) { vmsSite_applyToUI(); return; }
-        
-        const response = await fetch(VMS_SITE_API_URL + "/site-names", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ licenseKey: licenseKey })
-        }).catch(() => null);
-        
-        if (response && response.ok) {
-            const data = await response.json();
-            if (data.ok && data.sites) {
-                for (var k in data.sites) {
-                    if (data.sites[k] && data.sites[k].trim()) {
-                        window.vmsSiteData.names[k] = data.sites[k];
-                    }
-                }
-            }
-        }
-        
-        const localSites = localStorage.getItem("vms_site_names");
-        if (localSites) {
-            try {
-                const parsed = JSON.parse(localSites);
-                for (var lk in parsed) {
-                    if (parsed[lk] && parsed[lk].trim()) {
-                        window.vmsSiteData.names[lk] = parsed[lk];
-                    }
-                }
-            } catch(e) {}
-        }
-    } catch(e) { console.warn("[vmsSite] Load error:", e); }
-    
-    vmsSite_applyToUI();
-    window._vmsSite_loading = false;
-}
-
-function vmsSite_applyToUI() {
-    document.querySelectorAll("[data-site]").forEach(el => {
-        const siteKey = el.getAttribute("data-site");
-        if (window.vmsSiteData.names[siteKey]) el.innerText = window.vmsSiteData.names[siteKey];
-    });
-    
-    const selectors = document.querySelectorAll("#siteSelector, #siteSelectorTop");
-    selectors.forEach(selector => {
-        Array.from(selector.options).forEach(opt => {
-            const siteVal = opt.value;
-            if (window.vmsSiteData.names[siteVal]) {
-                const icon = opt.textContent.substring(0, 2);
-                const hasIcon = icon === "🏭" || icon === "🏢" || icon === "🏬";
-                opt.textContent = (hasIcon ? icon + " " : "") + window.vmsSiteData.names[siteVal];
-            }
-        });
-    });
-    
-    const currentSite = localStorage.getItem("vms_site") || "SITE_A";
-    if (window.vmsSiteData.names[currentSite]) {
-        const brandElements = document.querySelectorAll("#brandMobile, #brandSidebar, #brandSidebarMain");
-        brandElements.forEach(el => {
-            if (el.getAttribute("data-site") === currentSite) el.innerText = window.vmsSiteData.names[currentSite];
-        });
-    }
-}
-
-async function vmsSite_save() {
-    try {
-        const licenseKey = localStorage.getItem("vms_license_key");
-        if (!licenseKey) return false;
-        
-        await fetch(VMS_SITE_API_URL + "/site-names", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ licenseKey: licenseKey, sites: window.vmsSiteData.names })
-        });
-        
-        localStorage.setItem("vms_site_names", JSON.stringify(window.vmsSiteData.names));
-        return true;
-    } catch(e) { return false; }
-}
-
-function vmsSite_updateModalRestrictions() {
-    const pkg = vmsSite_getCurrentPackage();
-    const inputA = document.getElementById("vmsA"), inputB = document.getElementById("vmsB"), inputC = document.getElementById("vmsC");
-    const lockA = document.getElementById("vmsLockA"), lockB = document.getElementById("vmsLockB"), lockC = document.getElementById("vmsLockC");
-    const addBtn = document.getElementById("vmsAddSiteBtn"), saveBtn = document.getElementById("vmsSaveBtn");
-    const upgradeHint = document.getElementById("vmsUpgradeHint"), upgradeMessage = document.getElementById("vmsUpgradeMessage");
-    
-    if (pkg === "DEMO") {
-        if (inputA) { inputA.disabled = true; inputA.placeholder = "SITE A (Locked)"; }
-        if (inputB) { inputB.disabled = true; inputB.placeholder = "SITE B (Locked)"; }
-        if (inputC) { inputC.disabled = true; inputC.placeholder = "SITE C (Locked)"; }
-        if (lockA) lockA.style.display = "inline-block";
-        if (lockB) lockB.style.display = "inline-block";
-        if (lockC) lockC.style.display = "inline-block";
-        if (addBtn) addBtn.disabled = true;
-        if (saveBtn) saveBtn.disabled = true;
-        if (upgradeHint) { upgradeHint.style.display = "flex"; upgradeMessage.innerText = "🔒 Demo mode tidak bisa rename site. Upgrade ke BASIC untuk unlock!"; }
-    } else {
-        if (inputA) { inputA.disabled = false; inputA.placeholder = ""; }
-        if (inputB) { inputB.disabled = false; inputB.placeholder = ""; }
-        if (inputC) { inputC.disabled = false; inputC.placeholder = ""; }
-        if (lockA) lockA.style.display = "none";
-        if (lockB) lockB.style.display = "none";
-        if (lockC) lockC.style.display = "none";
-        if (addBtn) addBtn.disabled = false;
-        if (saveBtn) saveBtn.disabled = false;
-        if (upgradeHint) upgradeHint.style.display = "none";
-    }
-    
-    if (inputA) inputA.value = window.vmsSiteData.names.SITE_A || "SITE A";
-    if (inputB) inputB.value = window.vmsSiteData.names.SITE_B || "SITE B";
-    if (inputC) inputC.value = window.vmsSiteData.names.SITE_C || "SITE C";
-}
-
-function vmsSite_open() {
-    const pkg = vmsSite_getCurrentPackage();
-    if (pkg === "DEMO") {
-        if (typeof toast === 'function') toast("🔒 Demo Mode - Upgrade untuk rename site", "error");
-        else alert("DEMO MODE - Upgrade untuk rename site");
-        return;
-    }
-    const modal = document.getElementById("vmsSiteModal");
-    if (modal) modal.style.display = "flex";
-    vmsSite_updateModalRestrictions();
-}
-
-function vmsSite_close() { const modal = document.getElementById("vmsSiteModal"); if (modal) modal.style.display = "none"; }
-
-async function vmsSite_submit() {
-    const pkg = vmsSite_getCurrentPackage();
-    if (pkg === "DEMO") {
-        if (typeof toast === 'function') toast("Demo mode tidak bisa menyimpan perubahan!", "error");
-        return;
-    }
-    
-    const inputA = document.getElementById("vmsA"), inputB = document.getElementById("vmsB"), inputC = document.getElementById("vmsC");
-    if (inputA) window.vmsSiteData.names.SITE_A = inputA.value.trim() || "SITE A";
-    if (inputB) window.vmsSiteData.names.SITE_B = inputB.value.trim() || "SITE B";
-    if (inputC) window.vmsSiteData.names.SITE_C = inputC.value.trim() || "SITE C";
-    
-    vmsSite_applyToUI();
-    const saved = await vmsSite_save();
-    if (saved && typeof toast === 'function') toast("✅ Site names saved successfully!", "success");
-    vmsSite_close();
-}
-
-function vmsSite_add() { alert("Tambah site hanya untuk paket PRO"); }
-function vmsSite_removeCustomSite() { alert("Hanya PRO yang bisa menghapus site"); }
-function vmsSite_upgradePrompt() { alert("Hubungi admin untuk upgrade license"); }
-function vmsSite_init() { vmsSite_load(); }
-
-// ==================== DEVICE ID ====================
-if(!localStorage.getItem("deviceId")){
-    localStorage.setItem("deviceId", "dev_"+Date.now()+"_"+Math.random().toString(36).slice(2));
-}
-
-// ==================== HARDENED LICENSE SYSTEM ====================
+// ================= KONSTANTA & GLOBAL =================
+const CLOUD_URL = "https://vms3modev4.sapammeded.workers.dev";
 let LICENSE_MODE = "DEMO";
 let currentUser = null;
-let SITE_ID = localStorage.getItem("vms_site") || "SITE_A";
-let lastScanTime = {};
-
-function isDemo(){ return true; }
-function isBasic(){ return false; }
-function isPro(){ return false; }
-function isAdmin() { return false; }
-
-async function applyLicenseKey(key) {
-    if (!key) { if(typeof toast==='function') toast("Masukkan license key", "error"); return; }
-    
-    try {
-        const data = await VMS_API.validate(key, localStorage.getItem("deviceId"), "VMS Field Device");
-        
-        if (data && data.ok) {
-            LICENSE_MODE = data.company?.package || "BASIC";
-            localStorage.setItem("vms_license", LICENSE_MODE);
-            localStorage.setItem("vms_license_key", key);
-            
-            vmsSite_setPackage(LICENSE_MODE);
-            
-            if (typeof toast === 'function') toast(`✅ License aktif: ${LICENSE_MODE}`, "success");
-            applyLicenseUI();
-            if (typeof renderDashboard === 'function') renderDashboard();
-            if (typeof updateMonetizationUI === 'function') updateMonetizationUI();
-            
-            setTimeout(() => { syncFromCloud(); }, 1000);
-        } else {
-            if (typeof toast === 'function') toast(data?.message || "License tidak valid", "error");
-        }
-    } catch(e) {
-        console.error("License validation error:", e);
-        if (typeof toast === 'function') toast("Gagal memvalidasi license", "error");
-    }
-}
-
-function applyDemoLock(){
-    const exportBtn = document.getElementById("exportExcelAction");
-    const backupBtn = document.getElementById("backupAction");
-    if(exportBtn) exportBtn.style.display = "inline-flex";
-    if(backupBtn) backupBtn.style.display = "inline-flex";
-}
-
-function logout(){ if(typeof toast==='function') toast("Logout disabled in Demo Mode", "warning"); }
-
-function loadUserSession(){
-    document.getElementById("appLayout").style.display = "flex";
-    currentUser = { username: "SYSTEM", role: "OPERATOR" };
-    updateUserUI();
-    applyRoleVisibility();
-    return true;
-}
-
-function applyRoleVisibility() { 
-    document.querySelectorAll(".admin-only").forEach(el => el.classList.add("admin-hide")); 
-}
-
-function updateUserUI(){ 
-    document.querySelectorAll("#userInfoTop, #userInfoSidebar").forEach(el => { 
-        if(el) el.innerHTML = `👤 SYSTEM (DEMO MODE)`; 
-    }); 
-}
-
-function setSite(site){
-    if(!site || site.trim() === ""){ if(typeof toast==='function') toast("Site kosong", "error"); return; }
-    const clean = site.trim().toUpperCase().replace(/[^A-Z0-9_ ]/g, "").replace(/\s+/g, "_");
-    SITE_ID = clean;
-    localStorage.setItem("vms_site", SITE_ID);
-    document.querySelectorAll("#siteSelector, #siteSelectorTop").forEach(sel=>{
-        if(![...sel.options].find(o=>o.value===clean)){
-            let opt = document.createElement("option");
-            opt.value = clean;
-            opt.text = clean;
-            sel.appendChild(opt);
-        }
-        sel.value = clean;
-    });
-    if(typeof toast==='function') toast(`Site aktif: ${SITE_ID}`, "success");
-    if(typeof renderDashboard === 'function') renderDashboard();
-    if(typeof renderLogTable === 'function') renderLogTable();
-    if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
-    vmsSite_applyToUI();
-}
-
-function applyLicenseUI(){
-    document.getElementById("appLayout").style.display = "flex";
-    document.querySelectorAll(".admin-only").forEach(el => el.classList.add("admin-hide"));
-    const badge = document.getElementById("licenseStatusBadge");
-    if(badge) badge.innerText = "DEMO MODE";
-    applyDemoLock();
-    if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
-}
-
-// ==================== MONETIZATION SYSTEM ====================
-let visitors = {};
+let SITE_ID = "site1";
+let lastScanTime = null;
+let visitors = [];
 let logs = [];
 let auditLogs = [];
+let ANTI_NAKAL = { lastSite: null, lastGPS: null, lastOnline: Date.now(), flags: [] };
+let siteNames = { site1: "Main Entrance", site2: "Building A", site3: "Building B" };
+let customSites = [];
+let currentVisitorForPDF = null;
+let photoDataURL = null;
+let html5QrCode = null;
+let trendChart = null;
+let syncQueue = [];
+let __sync_lock = false;
+let LICENSE_KEY = null;
+let DEVICE_ID = null;
+let devices = [];
+let serverDevices = [];
 
-function getCurrentVisitorCount() { return Object.keys(visitors).filter(k => k.startsWith(SITE_ID + "_")).length; }
-function getDemoMaxRegister() { return 100; }
-function getDemoMaxScan() { return 500; }
-function getCurrentScanCount() { return logs.filter(l => (l.action === "CHECK_IN" || l.action === "CHECK_OUT") && l.site === SITE_ID).length; }
-function canRegisterSilent() { return getCurrentVisitorCount() < getDemoMaxRegister(); }
-function canScanSilent() { return getCurrentScanCount() < getDemoMaxScan(); }
-function canRegister() { return true; }
-function canScan() { return true; }
-
-function updateMonetizationUI() {
-    const progressCard = document.getElementById("monetizationProgressCard");
-    if(!progressCard) return;
-    const visitorCount = getCurrentVisitorCount();
-    const scanCount = getCurrentScanCount();
-    const maxLimit = getDemoMaxRegister();
-    const maxScan = getDemoMaxScan();
-    
-    const generateBtn = document.getElementById("generateQRBtn"), walkinBtn = document.getElementById("walkinBtn");
-    const startCamBtn = document.getElementById("startCamBtn"), manualProcessBtn = document.getElementById("manualProcess"), uploadQrBtn = document.getElementById("uploadQrBtn");
-    const canReg = canRegisterSilent(), canScn = canScanSilent();
-    if(generateBtn) generateBtn.disabled = !canReg;
-    if(walkinBtn) walkinBtn.disabled = !canReg;
-    if(startCamBtn) startCamBtn.disabled = !canScn;
-    if(manualProcessBtn) manualProcessBtn.disabled = !canScn;
-    if(uploadQrBtn) uploadQrBtn.disabled = !canScn;
-    
-    const percent = (visitorCount / maxLimit) * 100;
-    const progressBar = document.getElementById("visitorProgressBar");
-    if(progressBar) {
-        progressBar.style.width = Math.min(percent, 100) + "%";
-        if(percent >= 90) progressBar.className = "progress-bar-fill critical";
-        else if(percent >= 70) progressBar.className = "progress-bar-fill warning";
-        else progressBar.className = "progress-bar-fill";
-    }
-    document.getElementById("visitorLimitText").innerHTML = `${visitorCount} / ${maxLimit} (${scanCount}/${maxScan} scan)`;
-    const warningDiv = document.getElementById("visitorLimitWarning");
-    if(visitorCount >= maxLimit || scanCount >= maxScan) { warningDiv.innerHTML = "🔴 DEMO LIMIT HABIS! Upgrade license."; warningDiv.style.color = "#ef4444"; }
-    else if(visitorCount >= maxLimit * 0.8 || scanCount >= maxScan * 0.8) { warningDiv.innerHTML = "⚠️ Demo hampir limit. Upgrade untuk lanjut!"; warningDiv.style.color = "#f59e0b"; }
-    else { warningDiv.innerHTML = `Demo mode: ${maxLimit - visitorCount} register, ${maxScan - scanCount} scan tersisa`; warningDiv.style.color = "#5f7f7c"; }
-}
-
-// ==================== SECURE STORAGE ====================
-async function signData(data){
-    const enc = new TextEncoder().encode(JSON.stringify(data) + "VMS_LOCK_v2");
-    const buf = await crypto.subtle.digest("SHA-256", enc);
-    return btoa(String.fromCharCode(...new Uint8Array(buf)));
-}
-
-async function secureSave(){
-    try {
-        const payload = { visitors, logs, auditLogs };
-        const sig = await signData(payload);
-        localStorage.setItem("vms_secure", JSON.stringify({ payload, sig }));
-        localStorage.setItem("vms_visitors_backup", JSON.stringify(visitors));
-        if(typeof updateMonetizationUI === 'function') updateMonetizationUI();
-    } catch(e) { console.warn("Save error:", e); }
-}
-
-async function secureLoad(){
-    try {
-        let raw = localStorage.getItem("vms_secure");
-        if(!raw) {
-            let v = localStorage.getItem("vms_visitors_backup");
-            if(v) visitors = JSON.parse(v);
-            return;
-        }
-        let parsed = JSON.parse(raw);
-        let check = await signData(parsed.payload);
-        if(check === parsed.sig){
-            visitors = parsed.payload.visitors || {};
-            logs = parsed.payload.logs || [];
-            auditLogs = parsed.payload.auditLogs || [];
-        } else {
-            console.warn("Data tamper detected! Resetting...");
-            visitors = {};
-            logs = [];
-            auditLogs = [];
-        }
-    } catch(e) { console.warn("Load error:", e); }
-}
-
-window.saveStore = secureSave;
-
-// ==================== GLOBAL ERROR HANDLER ====================
-window.onerror = function(msg, url, line, col, error) { console.error('GLOBAL ERROR:', msg, error); return true; };
-window.onunhandledrejection = function(e) { console.error('UNHANDLED REJECTION:', e.reason); e.preventDefault(); return true; };
-
-// ==================== VMS ULTIMATE MODE ====================
-(async function(){
-    const QR_SECRET = "VmsEnt2026!";
-    let processingRegs = new Set();
-    let isManualProcessing = false;
-    let deviceId = localStorage.getItem('deviceId');
-    if(!deviceId){
-        deviceId = 'dev_' + Date.now() + '_' + Math.random().toString(36).substr(2, 8);
-        localStorage.setItem('deviceId', deviceId);
-    }
-
-    Object.defineProperty(window, "visitors", { get: () => visitors, set: (val) => { visitors = val || {}; secureSave(); } });
-    window.logs = logs;
-
-    function toast(msg, type='info'){
-        let t = document.createElement('div');
-        t.className = `toast-msg ${type}`;
-        t.innerText = msg;
-        document.body.appendChild(t);
-        setTimeout(()=>t.remove(), 3000);
-    }
-    window.toast = toast;
-
-    await secureLoad();
-    
-    function generateReg(){ return "REG"+Date.now()+Math.floor(Math.random() * 10000); }
-
-    async function generateSignature(payload){
-        const enc = new TextEncoder().encode(payload + QR_SECRET);
-        const hash = await crypto.subtle.digest('SHA-256', enc);
-        return btoa(String.fromCharCode(...new Uint8Array(hash)));
-    }
-
-    async function buildQR(reg, data){
-        const ts = Date.now();
-        const payload = JSON.stringify({ reg: reg, nama: data.nama, perusahaan: data.perusahaan, exp: data.expDate, ts: ts });
-        const sig = await generateSignature(payload);
-        return btoa(JSON.stringify({ payload, sig, ts }));
-    }
-    
-    async function parseQR(raw){
-        try{
-            const decoded = JSON.parse(atob(raw));
-            const expectedSig = await generateSignature(decoded.payload);
-            if(decoded.sig !== expectedSig) return null;
-            return JSON.parse(decoded.payload);
-        }catch(e){ return null; }
-    }
-
-    async function waitQRCodeReady(){
-        let retry = 0;
-        while(typeof QRCode === "undefined" && retry < 20){
-            await new Promise(r=>setTimeout(r,100));
-            retry++;
-        }
-        return typeof QRCode !== "undefined";
-    }
-
-    async function generateQRImage(qrPayload){
-        const ready = await waitQRCodeReady();
-        if(ready){
-            try{
-                const canvas = document.createElement('canvas');
-                await QRCode.toCanvas(canvas, qrPayload, { width: 200, margin: 1, color: { dark: '#000000', light: '#FFFFFF' } });
-                return canvas.toDataURL("image/png");
-            }catch(e){ console.warn("Local QR failed:", e); }
-        }
-        for(let i=0;i<2;i++){
-            try{
-                const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(qrPayload)}`;
-                const img = new Image();
-                img.crossOrigin = "Anonymous";
-                const result = await new Promise((resolve)=>{
-                    img.onload = ()=>{
-                        const canvas = document.createElement('canvas');
-                        canvas.width = 200;
-                        canvas.height = 200;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = "white";
-                        ctx.fillRect(0,0,200,200);
-                        ctx.drawImage(img,0,0,200,200);
-                        resolve(canvas.toDataURL("image/png"));
-                    };
-                    img.onerror = ()=>resolve(null);
-                    img.src = qrUrl;
-                    setTimeout(()=>resolve(null), 3000);
-                });
-                if(result) return result;
-            } catch(e){ console.warn("Retry QR API:", i, e); }
-        }
-        return null;
-    }
-
-    function addLog(regRaw, action){
-        let siteKey = SITE_ID + "_" + regRaw;
-        let v = visitors[siteKey];
-        const newLog = { reg: regRaw, name: v?.nama || regRaw, company: v?.perusahaan || '', category: v?.kategori || 'UMUM', action, time: Date.now(), site: SITE_ID, deviceId: localStorage.getItem("deviceId"), hash: btoa(regRaw + action + Date.now()) };
-        logs.unshift(newLog);
-        logs = logs.slice(0,2000);
-        window.logs = logs;
-        secureSave();
-        setTimeout(() => syncToCloud(), 500);
-    }
-
-    async function ensureJsPDFReady(){
-        if(window.jspdf) return true;
-        return new Promise((resolve)=>{
-            let max = 100, i = 0;
-            const interval = setInterval(()=>{
-                if(window.jspdf){ clearInterval(interval); resolve(true); }
-                if(i++ > max){ clearInterval(interval); resolve(false); }
-            },100);
-        });
-    }
-
-    function forceDownloadPDF(doc, filename){
-        try{
-            const blob = doc.output("blob");
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            setTimeout(() => { URL.revokeObjectURL(url); }, 3000);
-            return true;
-        }catch(err){ console.error("FORCE DOWNLOAD ERROR:", err); return false; }
-    }
-
-    async function downloadPDFStable(reg, data){
-        try{
-            const ready = await ensureJsPDFReady();
-            if(!ready){ toast("PDF engine gagal dimuat. Coba refresh.", "error"); return false; }
-            const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation:'portrait', unit:'mm', format:'a4' });
-            let headerColor = [31,78,74];
-            if(data.kategori === "VVIP") headerColor = [217,119,6];
-            else if(data.kategori === "VIP") headerColor = [100,116,139];
-            doc.setFillColor(...headerColor);
-            doc.rect(0,0,210,40,'F');
-            doc.setTextColor(255,255,255);
-            doc.setFontSize(22);
-            doc.text("INVITATION LETTER",105,20,{align:"center"});
-            doc.setFontSize(10);
-            doc.text("Corporate Access System",105,32,{align:"center"});
-            doc.setTextColor(0,0,0);
-            doc.setFontSize(12);
-            doc.setFont(undefined,'bold');
-            doc.text("VISITOR INFORMATION",20,60);
-            doc.setFontSize(10);
-            doc.setFont(undefined,'normal');
-            let y=75;
-            doc.text(`Name : ${data.nama||"-"}`,20,y); y+=8;
-            doc.text(`Company : ${data.perusahaan||"-"}`,20,y); y+=8;
-            doc.text(`Purpose : ${data.tujuan||"-"}`,20,y); y+=8;
-            doc.text(`PIC : ${data.pic||"-"}`,20,y); y+=8;
-            doc.text(`Dept : ${data.dept||"-"}`,20,y); y+=8;
-            doc.text(`Validity : ${data.startDate||"-"} → ${data.expDate||"-"}`,20,y);
-            if(data.foto && data.foto.startsWith('data')){ try{ doc.addImage(data.foto,'JPEG',20,y+10,30,30); }catch(e){} }
-            const qrPayload = await buildQR(reg, data);
-            const qrBase64 = await generateQRImage(qrPayload);
-            if(qrBase64 && qrBase64.startsWith("data:image")){ try{ doc.addImage(qrBase64, 'PNG', 140, 70, 50, 50); }catch(e){ doc.setFontSize(9); doc.text("QR ERROR",150,90); } }
-            else{ doc.setFontSize(9); doc.text("QR FAILED",150,90); }
-            const success = forceDownloadPDF(doc, `INVITATION_${reg}.pdf`);
-            if(!success){ toast("Download gagal. Gunakan browser Chrome.", "error"); return false; }
-            toast(`PDF ${reg} berhasil didownload`, "success");
-            return true;
-        }catch(err){ console.error("PDF ERROR:", err); toast("Terjadi error saat generate PDF", "error"); return false; }
-    }
-
-    let previewData = null;
-    let isDownloading = false;
-    
-    function showPreview(reg, data){
-        previewData = { reg, data };
-        let modal = document.createElement('div');
-        modal.className = 'modal-overlay';
-        buildQR(reg, data).then(async qrPayload => {
-            const qrBase64 = await generateQRImage(qrPayload);
-            modal.innerHTML = `<div class="modal-card"><h3 style="margin-bottom:16px;">📄 Preview Invitation</h3><div style="background:#f8fafc; padding:14px; border-radius:20px; margin-bottom:16px;"><p><strong>Name</strong> : ${data.nama}</p><p><strong>Company</strong> : ${data.perusahaan}</p><p><strong>Purpose</strong> : ${data.tujuan}</p><p><strong>PIC</strong> : ${data.pic}</p><p><strong>Validity</strong> : ${data.startDate} → ${data.expDate}</p><p><strong>REG</strong> : ${reg}</p></div>${qrBase64 ? `<img class="qr-preview" src="${qrBase64}">` : '<div style="color:red; text-align:center;">QR gagal dimuat</div>'}<div class="flex-btns"><button id="confirmDownloadBtn">Download PDF</button><button id="closePreviewBtn" class="btn-outline">Close</button></div></div>`;
-            document.body.appendChild(modal);
-            setTimeout(()=>modal.classList.add('active'),10);
-            const confirmBtn = modal.querySelector('#confirmDownloadBtn');
-            confirmBtn.onclick = async () => {
-                if(isDownloading) return;
-                isDownloading = true;
-                confirmBtn.innerHTML = `Processing <span class="loader"></span>`;
-                confirmBtn.disabled = true;
-                if(previewData) await downloadPDFStable(previewData.reg, previewData.data);
-                confirmBtn.innerHTML = "Download PDF";
-                confirmBtn.disabled = false;
-                isDownloading = false;
-                modal.remove();
-            };
-            modal.querySelector('#closePreviewBtn').onclick = () => modal.remove();
-        });
-    }
-
-    document.getElementById('generateQRBtn').onclick = async () => {
-        if(!canRegister()) return;
-        let nama = document.getElementById('regName').value;
-        let perusahaan = document.getElementById('regCompany').value;
-        let kategori = document.getElementById('regCategory').value;
-        let tujuan = document.getElementById('regPurpose').value;
-        let custom = document.getElementById('regCustomPurpose').value;
-        if(tujuan === "Lainnya") tujuan = custom || "Custom";
-        let pic = document.getElementById('regPic').value;
-        let dept = document.getElementById('regDept').value;
-        let startDate = document.getElementById('regStartDate').value || new Date().toISOString().slice(0,10);
-        let expDate = document.getElementById('regExpDate').value;
-        if(!nama || !perusahaan || !pic || !dept || !expDate){ toast("Lengkapi semua field wajib","error"); return; }
-        let reg = generateReg();
-        let foto = "";
-        let file = document.getElementById('regPhotoFile').files[0];
-        if(file){ 
-            let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(file);});
-            let img = new Image();
-            img.src = reader;
-            await new Promise(r => img.onload = r);
-            let canvas = document.createElement("canvas");
-            let maxWidth = 400;
-            let scale = maxWidth / img.width;
-            canvas.width = maxWidth;
-            canvas.height = img.height * scale;
-            let ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            foto = canvas.toDataURL("image/jpeg", 0.4);
-        }
-        let data = { nama, perusahaan, kategori, tujuan, pic, dept, startDate, expDate, foto, sessions:[], currentStatus:"OUT", updatedAt: Date.now(), version: 1, deviceId: deviceId, site: SITE_ID };
-        let siteKey = SITE_ID + "_" + reg;
-        visitors[siteKey] = data;
-        addLog(reg, "REGISTER");
-        toast(`✅ ${nama} terdaftar (${reg})`,"success");
-        showPreview(reg, data);
-        document.getElementById('regName').value = ""; 
-        document.getElementById('regCompany').value = ""; 
-        document.getElementById('regPic').value = ""; 
-        document.getElementById('regDept').value = ""; 
-        document.getElementById('regPhotoFile').value = ""; 
-        document.getElementById('previewPhotoThumb').src = "";
-        renderDashboard(); 
-        renderLogTable();
-        secureSave();
-        updateMonetizationUI();
-        setTimeout(() => syncToCloud(), 500);
-    };
-
-    async function capturePhoto(){
-        return new Promise(async(resolve)=>{
-            let modalDiv = document.createElement('div');
-            modalDiv.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.9);z-index:4000;display:flex;align-items:center;justify-content:center;';
-            modalDiv.innerHTML = `<div style="background:white;border-radius:32px;padding:20px;width:90%;max-width:400px;"><video id="camVideoWalk" autoplay playsinline style="width:100%;border-radius:16px;"></video><canvas id="canvasWalk" style="display:none;"></canvas><div style="display:flex;gap:12px;margin-top:16px;"><button id="takeWalkBtn">Ambil Foto</button><button id="closeWalkBtn">Batal</button></div></div>`;
-            document.body.appendChild(modalDiv);
-            let video = modalDiv.querySelector('#camVideoWalk');
-            let stream = await navigator.mediaDevices.getUserMedia({video:true});
-            video.srcObject = stream; 
-            await video.play();
-            modalDiv.querySelector('#takeWalkBtn').onclick = () => {
-                let canvas = modalDiv.querySelector('#canvasWalk');
-                canvas.width = video.videoWidth; 
-                canvas.height = video.videoHeight;
-                canvas.getContext('2d').drawImage(video,0,0);
-                canvas.toBlob(blob=>{ 
-                    stream.getTracks().forEach(t=>t.stop()); 
-                    modalDiv.remove(); 
-                    resolve(new File([blob],'walkin.jpg',{type:'image/jpeg'})); 
-                },'image/jpeg',0.8);
-            };
-            modalDiv.querySelector('#closeWalkBtn').onclick = () => { 
-                stream.getTracks().forEach(t=>t.stop()); 
-                modalDiv.remove(); 
-                resolve(null); 
-            };
-        });
-    }
-    
-    document.getElementById('walkinBtn').onclick = async () => {
-        if(!canRegister()) return;
-        toast("Ambil foto untuk walk-in","info");
-        let photoFile = await capturePhoto();
-        let fotoBase64 = "";
-        if(photoFile){ 
-            let reader = await new Promise(r=>{let fr=new FileReader(); fr.onload=()=>r(fr.result); fr.readAsDataURL(photoFile);});
-            let img = new Image();
-            img.src = reader;
-            await new Promise(r => img.onload = r);
-            let canvas = document.createElement("canvas");
-            let maxWidth = 400;
-            let scale = maxWidth / img.width;
-            canvas.width = maxWidth;
-            canvas.height = img.height * scale;
-            let ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-            fotoBase64 = canvas.toDataURL("image/jpeg", 0.4);
-        }
-        let reg = generateReg();
-        let now = new Date(); 
-        let exp = new Date(now); 
-        exp.setDate(exp.getDate()+1);
-        let walkData = { 
-            nama: `WALK-IN ${now.toLocaleString()}`, 
-            perusahaan: "Guest Visitor", 
-            kategori: "UMUM", 
-            tujuan: "Immediate Visit", 
-            pic: "Reception", 
-            dept: "Umum", 
-            startDate: now.toISOString().slice(0,10), 
-            expDate: exp.toISOString().slice(0,10), 
-            foto: fotoBase64, 
-            sessions:[], 
-            currentStatus:"OUT",
-            updatedAt: Date.now(),
-            version: 1,
-            deviceId: deviceId,
-            site: SITE_ID
-        };
-        let siteKey = SITE_ID + "_" + reg;
-        visitors[siteKey] = walkData;
-        addLog(reg, "WALK-IN");
-        toast(`Walk-in registered ${reg}`,"success");
-        showPreview(reg, walkData);
-        renderDashboard(); 
-        renderLogTable();
-        secureSave();
-        updateMonetizationUI();
-        setTimeout(() => syncToCloud(), 500);
-    };
-
-    let scannerInstance = null;
-    let isScanning = false;
-    let currentCameraId = null;
-
-    async function initScanner() {
-        if (scannerInstance) { await stopScanner(); }
-        try {
-            const cameras = await Html5Qrcode.getCameras();
-            if (!cameras || cameras.length === 0) { toast("Tidak ada kamera terdeteksi", "error"); return false; }
-            const backCamera = cameras.find(cam => cam.label.toLowerCase().includes('back') || cam.label.toLowerCase().includes('rear') || cam.label.toLowerCase().includes('belakang'));
-            currentCameraId = backCamera ? backCamera.id : cameras[0].id;
-            scannerInstance = new Html5Qrcode("cameraPreview");
-            return true;
-        } catch (err) { console.error("Init scanner error:", err); toast("Gagal inisialisasi kamera", "error"); return false; }
-    }
-
-    async function startScanner() {
-        if (isScanning) return;
-        if (!scannerInstance) { const init = await initScanner(); if (!init) return; }
-        try {
-            await scannerInstance.start(currentCameraId, { fps: 10, qrbox: { width: 280, height: 280 }, aspectRatio: 1.0 },
-                async (decodedText) => {
-                    if (processingRegs.has(decodedText)) { return; }
-                    try { await processScan(decodedText); } catch (err) {}
-                },
-                (error) => { if (error && !error.includes("No MultiFormat Readers")) { console.log("Scan error:", error); } }
-            );
-            isScanning = true;
-            toast("Scanner siap - unlimited scan mode", "success");
-        } catch (err) { console.error("Start scanner error:", err); toast("Gagal start kamera: " + err.message, "error"); isScanning = false; }
-    }
-
-    async function stopScanner() {
-        if (scannerInstance && isScanning) { try { await scannerInstance.stop(); await scannerInstance.clear(); } catch (err) { console.error("Stop scanner error:", err); } }
-        isScanning = false;
-    }
-
-    async function cleanupScanner() {
-        if (scannerInstance) { try { await scannerInstance.stop().catch(()=>{}); await scannerInstance.clear().catch(()=>{}); } catch (e) {} scannerInstance = null; }
-        isScanning = false;
-        const container = document.getElementById("cameraPreview");
-        if(container) container.innerHTML = "";
-    }
-
-    document.getElementById('startCamBtn').onclick = async () => { 
-        const container = document.getElementById('cameraPreview'); 
-        container.innerHTML = ''; 
-        await stopScanner(); 
-        await cleanupScanner(); 
-        await startScanner(); 
-    };
-    document.getElementById('stopCamBtn').onclick = async () => { await stopScanner(); await cleanupScanner(); toast("Kamera berhenti", "info"); };
-    
-    document.getElementById('uploadQrBtn').onclick = () => document.getElementById('uploadQrFile').click();
-    document.getElementById('uploadQrFile').onchange = async (e) => {
-        let file = e.target.files[0];
-        if(!file) return;
-        try {
-            if(!window.Html5Qrcode){ toast("QR engine belum siap", "error"); return; }
-            const url = URL.createObjectURL(file);
-            const img = new Image();
-            img.src = url;
-            await img.decode();
-            URL.revokeObjectURL(url);
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            canvas.getContext('2d').drawImage(img, 0, 0);
-            const scanner = new Html5Qrcode("temp-reader");
-            const decoded = await scanner.scanImage(canvas, { qrbox: { width: img.width, height: img.height } });
-            await processScan(decoded);
-            await scanner.clear();
-            document.getElementById("temp-reader").innerHTML = "";
-        } catch(err){ console.error(err); toast("QR tidak terbaca / file tidak valid", "error"); }
-    };
-    
-    async function processScan(qrText){
-        let mode = document.getElementById('scanMode').value;
-        let payload = await parseQR(qrText);
-        if(!payload){ toast("QR tidak valid (bukan dari sistem ini)","error"); return; }
-        let reg = payload.reg;
-        
-        if(lastScanTime[reg] && Date.now() - lastScanTime[reg] < 1000){
-            toast("Scan terlalu cepat","warning");
-            return;
-        }
-        lastScanTime[reg] = Date.now();
-        
-        if(processingRegs.has(reg)){ toast("Sedang diproses, tunggu sebentar","warning"); return; }
-        processingRegs.add(reg);
-        try {
-            let siteKey = SITE_ID + "_" + reg;
-            let visitor = visitors[siteKey];
-            if(!visitor){ toast(`Visitor ${reg} tidak ditemukan`,"error"); return; }
-            let exp = new Date(visitor.expDate);
-            exp.setHours(23,59,59,999);
-            if(exp < new Date()){ toast("QR sudah expired","error"); return; }
-            if(mode === "CHECK_IN"){
-                if(!visitor.sessions) visitor.sessions = [];
-                visitor.sessions.push({ checkIn: Date.now(), checkOut: null });
-                visitors[siteKey] = { ...visitor, currentStatus: "IN", updatedAt: Date.now(), version: (visitor.version || 0) + 1, deviceId: deviceId, site: SITE_ID };
-                addLog(reg, "CHECK_IN");
-                toast(`✅ CHECK-IN ${visitor.nama} berhasil`,"success");
-            } else {
-                if(!visitor.sessions) visitor.sessions = [];
-                let openSession = null;
-                for(let i = visitor.sessions.length - 1; i >= 0; i--){ if(!visitor.sessions[i].checkOut){ openSession = visitor.sessions[i]; break; } }
-                if(!openSession){ toast("Tidak ada sesi check-in aktif, tetap diproses sebagai check-out","warning"); visitor.sessions.push({ checkIn: Date.now(), checkOut: Date.now() }); }
-                else { openSession.checkOut = Date.now(); }
-                visitors[siteKey] = { ...visitor, currentStatus: "OUT", updatedAt: Date.now(), version: (visitor.version || 0) + 1, deviceId: deviceId, site: SITE_ID };
-                addLog(reg, "CHECK_OUT");
-                toast(`✅ CHECK-OUT ${visitor.nama} berhasil`,"success");
-            }
-            renderDashboard(); 
-            renderLogTable();
-            secureSave();
-            updateMonetizationUI();
-            setTimeout(() => syncToCloud(), 500);
-        } finally { setTimeout(()=>processingRegs.delete(reg), 1000); }
-    }
-    
-    document.getElementById('manualProcess').onclick = async () => {
-        if(isManualProcessing){ toast("Sedang diproses","warning"); return; }
-        isManualProcessing = true;
-        try {
-            let reg = document.getElementById('manualReg').value.trim();
-            let mode = document.getElementById('scanMode').value;
-            let siteKey = SITE_ID + "_" + reg;
-            let visitor = visitors[siteKey];
-            if(!visitor){ toast("REG tidak ditemukan","error"); return; }
-            let exp = new Date(visitor.expDate);
-            exp.setHours(23,59,59,999);
-            if(exp < new Date()){ toast("QR sudah expired","error"); return; }
-            if(mode === "CHECK_IN"){
-                if(!visitor.sessions) visitor.sessions = [];
-                visitor.sessions.push({ checkIn: Date.now(), checkOut: null });
-                visitors[siteKey] = { ...visitor, currentStatus: "IN", updatedAt: Date.now(), version: (visitor.version || 0) + 1, deviceId: deviceId, site: SITE_ID };
-                addLog(reg, "CHECK_IN");
-                toast(`Check-in ${visitor.nama} success`,"success");
-            } else {
-                if(!visitor.sessions) visitor.sessions = [];
-                let openSession = null;
-                for(let i = visitor.sessions.length - 1; i >= 0; i--){ if(!visitor.sessions[i].checkOut){ openSession = visitor.sessions[i]; break; } }
-                if(!openSession){ toast("Tidak ada sesi check-in aktif, tetap diproses sebagai check-out","warning"); visitor.sessions.push({ checkIn: Date.now(), checkOut: Date.now() }); }
-                else { openSession.checkOut = Date.now(); }
-                visitors[siteKey] = { ...visitor, currentStatus: "OUT", updatedAt: Date.now(), version: (visitor.version || 0) + 1, deviceId: deviceId, site: SITE_ID };
-                addLog(reg, "CHECK_OUT");
-                toast(`Check-out ${visitor.nama} success`,"success");
-            }
-            renderDashboard(); 
-            renderLogTable();
-            secureSave();
-            updateMonetizationUI();
-            setTimeout(() => syncToCloud(), 500);
-        } finally { isManualProcessing = false; }
-    };
-
-    function renderDashboard(){
-        try {
-            let v = Object.values(visitors);
-            let active = v.filter(x=>x.currentStatus==="IN").length;
-            let today = new Date().toDateString();
-            let todayCheck = logs.filter(l=> new Date(l.time).toDateString()===today && l.action==="CHECK_IN").length;
-            document.getElementById('statsWidget').innerHTML = `<div class="stat-card"><h4>Total Visitors</h4><div class="stat-number">${v.length}</div></div><div class="stat-card"><h4>Active Inside</h4><div class="stat-number">${active}</div></div><div class="stat-card"><h4>Check-ins Today</h4><div class="stat-number">${todayCheck}</div></div>`;
-            let last7 = [...Array(7)].map((_,i)=>{let d=new Date(); d.setDate(d.getDate()-i); return d.toLocaleDateString('id',{weekday:'short'});}).reverse();
-            let trend = last7.map((_,i)=>{let d=new Date(); d.setDate(d.getDate()-(6-i)); return logs.filter(l=>new Date(l.time).toDateString()===d.toDateString() && l.action==="CHECK_IN").length;});
-            const trendCanvas = document.getElementById('trendChart');
-            const categoryCanvas = document.getElementById('categoryChart');
-            if(window.Chart && trendCanvas && categoryCanvas) {
-                if(window.lineChart) window.lineChart.destroy();
-                window.lineChart = new Chart(trendCanvas, { type:'line', data:{ labels:last7, datasets:[{ label:'Visit trend', data:trend, borderColor:'#1f4e4a', fill:false }] } });
-                let catCount = { VVIP:0, VIP:0, UMUM:0 };
-                v.forEach(x=>{ if(x.kategori) catCount[x.kategori]++; });
-                if(window.pieChart) window.pieChart.destroy();
-                window.pieChart = new Chart(categoryCanvas, { type:'pie', data:{ labels:['VVIP','VIP','UMUM'], datasets:[{ data:[catCount.VVIP,catCount.VIP,catCount.UMUM], backgroundColor:['#fbbf24','#94a3b8','#1f4e4a'] }] } });
-            } else { if(trendCanvas) trendCanvas.style.display = 'none'; if(categoryCanvas) categoryCanvas.style.display = 'none'; }
-            updateMonetizationUI();
-        } catch(e) { console.error("Render dashboard error:", e); }
-    }
-    
-    function renderLogTable(){
-        try {
-            let search = document.getElementById('searchLog')?.value.toLowerCase() || '';
-            let filtered = logs.filter(l=> (l.name?.toLowerCase().includes(search) || l.reg?.toLowerCase().includes(search)) && (!l.site || l.site === SITE_ID));
-            let tbody = document.getElementById('logTableBody');
-            if(!tbody) return;
-            tbody.innerHTML = "";
-            filtered.forEach(l=>{
-                let row = tbody.insertRow();
-                row.insertCell(0).innerHTML = `<input type="checkbox" class="logCheckItem" data-reg="${l.reg}">`;
-                row.insertCell(1).innerText = l.reg;
-                row.insertCell(2).innerText = l.name;
-                row.insertCell(3).innerText = l.company;
-                row.insertCell(4).innerHTML = `<span class="badge badge-${l.category}">${l.category}</span>`;
-                row.insertCell(5).innerText = l.action;
-                row.insertCell(6).innerText = new Date(l.time).toLocaleString();
-                row.insertCell(7).innerText = l.site || "SITE_A";
-                let btn = document.createElement('button'); btn.innerText="PDF"; btn.classList.add('btn-outline'); btn.style.padding="4px 12px"; btn.onclick = () => { let siteKey = SITE_ID + "_" + l.reg; let v = visitors[siteKey]; if(v) showPreview(l.reg, v); };
-                row.insertCell(8).appendChild(btn);
-            });
-        } catch(e) { console.error("Render log table error:", e); }
-    }
-
-    document.getElementById('refreshLogsBtn').onclick = renderLogTable;
-    document.getElementById('selectAllBtn').onclick = () => document.querySelectorAll('.logCheckItem').forEach(c=>c.checked=true);
-    document.getElementById('deselectAllBtn').onclick = () => document.querySelectorAll('.logCheckItem').forEach(c=>c.checked=false);
-    document.getElementById('deleteSelectedBtn').onclick = () => {
-        let regs = [...new Set([...document.querySelectorAll('.logCheckItem:checked')].map(c=>c.dataset.reg))];
-        regs.forEach(r=>{ let siteKey = SITE_ID + "_" + r; delete visitors[siteKey]; });
-        const newLogs = logs.filter(l=>!regs.includes(l.reg));
-        logs.length = 0;
-        logs.push(...newLogs);
-        window.logs = logs;
-        secureSave();
-        renderDashboard(); renderLogTable(); toast(`Deleted ${regs.length} records`,"success");
-        updateMonetizationUI();
-        setTimeout(() => syncToCloud(), 500);
-    };
-    document.getElementById('deleteAllBtn').onclick = () => { 
-        visitors = {}; 
-        window.visitors = visitors;
-        logs.length = 0;
-        window.logs = logs;
-        secureSave(); 
-        renderDashboard(); 
-        renderLogTable(); 
-        toast("All data cleared","info"); 
-        updateMonetizationUI();
-        setTimeout(() => syncToCloud(), 500);
-    };
-    
-    document.getElementById('exportExcelAction').onclick = () => {
-        if (!window.XLSX) { toast("Excel engine belum siap", "error"); return; }
-        const dataForExcel = [];
-        Object.entries(visitors).forEach(([siteKey, visitor]) => {
-            if (!siteKey.startsWith(SITE_ID + "_")) return;
-            const reg = siteKey.replace(SITE_ID + "_", "");
-            dataForExcel.push({ "Nama": visitor.nama || "-", "No. Registrasi": reg, "Perusahaan": visitor.perusahaan || "-", "Kategori": visitor.kategori || "UMUM", "Tujuan": visitor.tujuan || "-", "PIC": visitor.pic || "-", "Check-In": visitor.sessions?.[0]?.checkIn ? new Date(visitor.sessions[0].checkIn).toLocaleString() : "-", "Waktu Register": new Date(visitor.updatedAt || Date.now()).toLocaleString() });
-        });
-        const ws = XLSX.utils.json_to_sheet(dataForExcel);
-        const wb = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(wb, ws, "VMS_Visitor_Report");
-        XLSX.writeFile(wb, `VMS_Report_${new Date().toISOString().slice(0,19).replace(/:/g, '-')}.xlsx`);
-        toast("✅ Excel berhasil di export", "success");
-    };
-    
-    document.getElementById('backupAction').onclick = () => { 
-        try { let a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify({visitors,logs,auditLogs})],{type:"application/json"})); a.download = `vms_backup_${Date.now()}.json`; a.click(); toast("Backup ready","success"); }
-        catch(e) { toast("Backup gagal", "error"); }
-    };
-    document.getElementById('resetDatabaseAction').onclick = () => { 
-        visitors = {}; 
-        window.visitors = visitors;
-        logs.length = 0;
-        window.logs = logs;
-        auditLogs = [];
-        secureSave(); 
-        renderDashboard(); 
-        renderLogTable(); 
-        toast("Database reset","info"); 
-        updateMonetizationUI();
-        setTimeout(() => syncToCloud(), 500);
-    };
-    document.getElementById('regPhotoFile').onchange = (e) => { if(e.target.files[0]){ let r=new FileReader(); r.onload=ev=>document.getElementById('previewPhotoThumb').src=ev.target.result; r.readAsDataURL(e.target.files[0]); } };
-
-    const panes = {
-    dashboard: document.getElementById('dashboardPane'),
-    register: document.getElementById('registerPane'),
-    scanner: document.getElementById('scannerPane'),
-    logs: document.getElementById('logsPane')
+// ================= LIMIT CONFIGURATION =================
+const LIMITS = {
+    DEMO: { maxVisitors: 5, maxDevices: 1, maxSites: 3, canCustomSite: false },
+    BASIC: { maxVisitors: 150, maxDevices: 3, maxSites: 3, canCustomSite: false },
+    PRO: { maxVisitors: Infinity, maxDevices: Infinity, maxSites: Infinity, canCustomSite: true }
 };
 
-function switchTab(tabId){
-    Object.values(panes).forEach(p => { if(p) p.classList.remove('active-pane'); });
-    if(panes[tabId]) panes[tabId].classList.add('active-pane');
-
-    document.querySelectorAll('.nav-item').forEach(nav=>{
-        if(nav.dataset.tab === tabId) nav.classList.add('active');
-        else nav.classList.remove('active');
+// ================= DEVICE MANAGEMENT =================
+async function loadDevicesFromServer() {
+    if (!LICENSE_KEY) return;
+    const res = await safeFetch(`${CLOUD_URL}/client/devices`, {
+        method: 'POST',
+        body: JSON.stringify({ licenseKey: LICENSE_KEY })
     });
-
-    document.querySelectorAll('.mobile-nav').forEach(nav=>{
-        if(nav.dataset.tab === tabId) nav.classList.add('active');
-        else nav.classList.remove('active');
-    });
-}
-
-document.querySelectorAll('.nav-item, .mobile-nav').forEach(el=>{
-    if(el.dataset && el.dataset.tab){
-        el.addEventListener('click',()=>{
-            switchTab(el.dataset.tab);
-
-            if(window.innerWidth<=780){
-                const sb = document.getElementById('mobileSidebar');
-                const ov = document.getElementById('overlay');
-                if(sb) sb.classList.remove('open');
-                if(ov) ov.style.display='none';
-            }
-        });
+    if (res.ok && res.data) {
+        serverDevices = res.data.devices || [];
+        renderDevicesList();
     }
-});
-
-// ===== SAFE CLICK BINDING =====
-const mobileMenuBtn = document.getElementById('mobileMenuBtn');
-const mobileSidebar = document.getElementById('mobileSidebar');
-const overlay = document.getElementById('overlay');
-
-if(mobileMenuBtn && mobileSidebar && overlay){
-    mobileMenuBtn.onclick = () => {
-        mobileSidebar.classList.add('open');
-        overlay.style.display='block';
-    };
-
-    overlay.onclick = () => {
-        mobileSidebar.classList.remove('open');
-        overlay.style.display='none';
-    };
 }
 
-window.addEventListener('resize',()=>{
-    if(window.innerWidth>780){
-        const sb = document.getElementById('mobileSidebar');
-        const ov = document.getElementById('overlay');
-        if(sb) sb.classList.remove('open');
-        if(ov) ov.style.display='none';
-    }
-});
-
-// ===== LICENSE =====
-const submitLicenseBtn = document.getElementById('submitLicenseBtn');
-const licenseInput = document.getElementById("licenseInput");
-
-if(submitLicenseBtn && licenseInput){
-    submitLicenseBtn.onclick = () => {
-        if(licenseInput.value) applyLicenseKey(licenseInput.value);
-        licenseInput.value = "";
-    };
+function renderDevicesList() {
+    const container = document.getElementById('devicesList');
+    if (!container) return;
+    const limit = LIMITS[LICENSE_MODE].maxDevices;
+    const activeCount = serverDevices.filter(d => d.status === 'ACTIVE').length;
+    container.innerHTML = `
+        <p>Device Count: ${activeCount} / ${limit === Infinity ? '∞' : limit}</p>
+        <table style="width:100%">
+            <thead><tr><th>Device ID</th><th>Name</th><th>Status</th><th>Last Seen</th></tr></thead>
+            <tbody>
+                ${serverDevices.map(d => `
+                    <tr>
+                        <td>${d.deviceId?.substring(0,12)}...</td>
+                        <td>${d.deviceName || '-'}</td>
+                        <td><span class="badge-${d.status === 'ACTIVE' ? 'success' : 'warning'}">${d.status || 'PENDING'}</span></td>
+                        <td>${d.lastSeen ? new Date(d.lastSeen).toLocaleString() : '-'}</td>
+                    </tr>
+                `).join('')}
+            </tbody>
+        </table>
+    `;
+    document.getElementById('deviceCount').innerHTML = activeCount;
+    document.getElementById('deviceLimit').innerHTML = limit === Infinity ? '∞' : limit;
 }
 
-// ===== LOGIN =====
-const doLoginBtn = document.getElementById('doLoginBtn');
-if(doLoginBtn){
-    doLoginBtn.onclick = () => {
-        toast("Login disabled - Demo Mode Only", "warning");
-    };
-}
-
-// ===== LOGOUT =====
-const logoutTop = document.getElementById('logoutBtnTop');
-if(logoutTop) logoutTop.onclick = logout;
-
-const logoutSidebar = document.getElementById('logoutBtnSidebar');
-if(logoutSidebar) logoutSidebar.onclick = logout;
-
-// ===== SITE =====
-const siteSelector = document.getElementById('siteSelector');
-if(siteSelector){
-    siteSelector.onchange = (e) => setSite(e.target.value);
-}
-
-const siteSelectorTop = document.getElementById('siteSelectorTop');
-if(siteSelectorTop){
-    siteSelectorTop.onchange = (e) => setSite(e.target.value);
-}
-
-// ===== SYNC =====
-const manualSyncBtn = document.getElementById('manualSyncBtn');
-if(manualSyncBtn) manualSyncBtn.onclick = manualSync;
-
-
-// ===== INIT (TIDAK DIUBAH) =====
-loadUserSession();
-setSite(SITE_ID);
-renderDashboard(); 
-renderLogTable();
-updateMonetizationUI();
-applyLicenseUI();
-vmsSite_init();
-
-startAutoSync();
-
-window.downloadPDFStable = downloadPDFStable;
-window.logs = logs;
-window.toast = toast;
-window.processScan = processScan;
-window.addLog = addLog;
-window.renderDashboard = renderDashboard;
-window.renderLogTable = renderLogTable;
-window.buildQR = buildQR;
-window.parseQR = parseQR;
-window.generateQRImage = generateQRImage;
-window.updateMonetizationUI = updateMonetizationUI;
-window.canRegister = canRegister;
-window.canScan = canScan;
-window.canRegisterSilent = canRegisterSilent;
-window.canScanSilent = canScanSilent;
-window.getCurrentVisitorCount = getCurrentVisitorCount;
-window.getCurrentScanCount = getCurrentScanCount;
-window.syncToCloud = syncToCloud;
-window.syncFromCloud = syncFromCloud;
-
-// ❌ JANGAN REDECLARE VMS_API
-// window.VMS_API = VMS_API;  ← HAPUS BARIS INI KALAU ADA
-
-window.addEventListener("beforeunload", () => secureSave());
-
-toast("🔥 VMS ACTIVE - Cross Device Sync Enabled | License: DEMO","success");
-})();
-</script>
-// ==================== VMS CORE ENGINE ====================
-let vms_lastSync = 0;
-let vms_deviceId = generateDeviceId();
-let vms_syncLock = false;
-
-async function vms_init() {
-    const licenseKey = localStorage.getItem("licenseKey");
-    if (!licenseKey) return;
-
-    const res = await VMS_API.validate(licenseKey, vms_deviceId, "MAIN_DEVICE");
-
-    if (!res.ok) {
-        console.warn("License invalid");
+async function requestNewDevice() {
+    if (LICENSE_MODE === 'DEMO') {
+        alert('Demo mode tidak bisa request device tambahan');
         return;
     }
-
-    console.log("[VMS] VALID");
-
-    await vms_sync();
-
-    setInterval(vms_sync, 5000);
-}
-
-async function vms_sync() {
-    if (vms_syncLock) return;
-    vms_syncLock = true;
-
-    try {
-        const licenseKey = localStorage.getItem("licenseKey");
-        if (!licenseKey) return;
-
-        const res = await VMS_API.sync(licenseKey, vms_deviceId, vms_lastSync);
-
-        if (!res.ok) return;
-
-        if (res.visitors) {
-            window.patrolData = {
-                ...(window.patrolData || {}),
-                ...res.visitors
-            };
-        }
-
-        if (res.logs) {
-            window.activityLogs = [
-                ...res.logs,
-                ...(window.activityLogs || [])
-            ];
-        }
-
-        vms_lastSync = res.serverTime;
-
-        console.log("[VMS] SYNC OK");
-
-    } catch (e) {
-        console.error("SYNC ERROR", e);
-    }
-
-    vms_syncLock = false;
-}
-
-async function vms_push() {
-    try {
-        const licenseKey = localStorage.getItem("licenseKey");
-        if (!licenseKey) return;
-
-        await VMS_API.save(
-            licenseKey,
-            vms_deviceId,
-            window.patrolData || {},
-            window.activityLogs || []
-        );
-
-        console.log("[VMS] PUSH OK");
-
-    } catch (e) {
-        console.error("PUSH ERROR", e);
+    const res = await safeFetch(`${CLOUD_URL}/request-device`, {
+        method: 'POST',
+        body: JSON.stringify({
+            licenseKey: LICENSE_KEY,
+            deviceId: `pending-${Date.now()}`,
+            deviceName: navigator.userAgent.substring(0, 50),
+            deviceInfo: { requestedAt: Date.now() }
+        })
+    });
+    if (res.ok && res.data) {
+        alert(`Request device submitted. Invoice ID: ${res.data.invoiceId}\nAmount: Rp ${res.data.amount?.toLocaleString()}\nPlease contact admin for payment approval.`);
+        await loadDevicesFromServer();
+    } else {
+        alert(res.message || 'Failed to request device');
     }
 }
 
-// AUTO START
-setTimeout(vms_init, 1000);
+function closeDeviceRequestModal() {
+    document.getElementById('deviceRequestModal').classList.remove('active');
+}
+
+// ================= VISITOR MANAGEMENT dengan semua field =================
+function generateQRAndRegister() {
+    if (!canRegister()) return;
+    
+    const name = document.getElementById('visitorName').value;
+    const company = document.getElementById('visitorCompany').value;
+    const category = document.getElementById('visitorCategory').value;
+    const purpose = document.getElementById('visitorPurpose').value;
+    const pic = document.getElementById('visitorPic').value;
+    const department = document.getElementById('visitorDepartment').value;
+    const startDate = document.getElementById('visitorStartDate').value;
+    const expiredDate = document.getElementById('visitorExpiredDate').value;
+    const siteId = document.getElementById('visitorSite').value;
+    
+    if (!name || !company || !purpose || !pic || !department || !startDate || !expiredDate) {
+        alert('Semua field wajib diisi (*)');
+        return;
+    }
+    
+    registerVisitorWithAllData(name, company, category, purpose, pic, department, startDate, expiredDate, siteId);
+}
+
+async function registerVisitorWithAllData(name, company, category, purpose, pic, department, startDate, expiredDate, siteId) {
+    const ok = await runAntiNakalCheck(siteId);
+    if (!ok && LICENSE_MODE !== 'DEMO') { alert('Security check failed'); return; }
+    
+    const visitorId = generateReg();
+    const now = Date.now();
+    const expiredTimestamp = new Date(expiredDate).getTime();
+    
+    const categoryColor = { gold: '#ffd700', silver: '#c0c0c0', green: '#28a745' }[category];
+    
+    const newVisitor = {
+        id: visitorId,
+        name, company, category, categoryColor,
+        purpose, pic, department,
+        startDate, expiredDate, expiredTimestamp,
+        siteId, siteName: siteNames[siteId] || siteId,
+        checkIn: now, checkOut: null,
+        photo: photoDataURL,
+        registrationNumber: visitorId,
+        _synced: false,
+        isActive: true
+    };
+    
+    visitors.unshift(newVisitor);
+    addLog(visitorId, name, siteId, 'CHECK_IN');
+    currentVisitorForPDF = newVisitor;
+    secureSave();
+    await generateQRImage(visitorId);
+    
+    document.getElementById('qrContainer').style.display = 'flex';
+    clearRegisterForm();
+    renderDashboard();
+    renderVisitorsTable();
+    smartSync('normal');
+    showToast(`Visitor ${name} registered with QR Code`);
+}
+
+function clearRegisterForm() {
+    document.getElementById('visitorName').value = '';
+    document.getElementById('visitorCompany').value = '';
+    document.getElementById('visitorPurpose').value = '';
+    document.getElementById('visitorPic').value = '';
+    document.getElementById('visitorDepartment').value = '';
+    document.getElementById('visitorStartDate').value = '';
+    document.getElementById('visitorExpiredDate').value = '';
+    photoDataURL = null;
+    document.getElementById('photoPreview').innerHTML = '';
+}
+
+function renderVisitorsTable() {
+    const tbody = document.querySelector('#visitorsTable tbody');
+    if (!tbody) return;
+    const search = document.getElementById('visitorSearch')?.value.toLowerCase() || '';
+    const filtered = visitors.filter(v => 
+        v.name?.toLowerCase().includes(search) || 
+        v.company?.toLowerCase().includes(search) ||
+        v.registrationNumber?.toLowerCase().includes(search)
+    );
+    
+    tbody.innerHTML = filtered.map(v => {
+        const isExpired = v.expiredTimestamp < Date.now();
+        const checkOutTime = v.checkOut ? new Date(v.checkOut).toLocaleString() : '-';
+        const categoryDisplay = { gold: '🥇', silver: '🥈', green: '🟢' }[v.category] || '🟢';
+        return `
+            <tr style="${isExpired ? 'opacity:0.5; background:#ffebee;' : ''}">
+                <td>${v.name} ${categoryDisplay}</td>
+                <td>${v.company}</td>
+                <td>${v.purpose?.substring(0, 50) || '-'}</td>
+                <td>${v.pic} (${v.department || '-'})</td>
+                <td>${v.startDate || '-'}</td>
+                <td>${v.expiredDate || '-'} ${isExpired ? '⚠️ EXPIRED' : ''}</td>
+                <td>${new Date(v.checkIn).toLocaleString()}</td>
+                <td>${checkOutTime}</td>
+                <td>${v.registrationNumber}</td>
+                <td>${v.checkOut ? 'Selesai' : 'Aktif'}</td>
+                <td>${isExpired ? '<span class="badge-danger">Expired</span>' : (v.checkOut ? '<span class="badge-warning">Checked Out</span>' : '<span class="badge-success">Active</span>')}</td>
+            </tr>
+        `;
+    }).join('');
+}
+
+async function exportVisitorsToExcel() {
+    if (LICENSE_MODE === 'DEMO') {
+        alert('Export Excel hanya untuk paket BASIC dan PRO');
+        return;
+    }
+    
+    const exportData = visitors.map(v => ({
+        'Nama': v.name,
+        'Perusahaan': v.company,
+        'Tujuan': v.purpose,
+        'PIC': v.pic,
+        'Start Date': v.startDate,
+        'Expired Date': v.expiredDate,
+        'Jam Masuk': new Date(v.checkIn).toLocaleString(),
+        'Jam Keluar': v.checkOut ? new Date(v.checkOut).toLocaleString() : '-',
+        'Nomor Registrasi': v.registrationNumber,
+        'Keterangan': v.checkOut ? 'Selesai' : (v.expiredTimestamp < Date.now() ? 'Expired' : 'Aktif')
+    }));
+    
+    const ws = XLSX.utils.json_to_sheet(exportData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Visitors');
+    XLSX.writeFile(wb, `visitors_export_${Date.now()}.xlsx`);
+    showToast('Excel exported');
+}
+
+// ================= PDF BADGE dengan semua data =================
+async function downloadBadgePDF() {
+    if (!currentVisitorForPDF) return;
+    await ensureJsPDFReady();
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    
+    const v = currentVisitorForPDF;
+    const categoryColor = { gold: '#ffd700', silver: '#c0c0c0', green: '#28a745' }[v.category] || '#28a745';
+    
+    // Header dengan warna kategori
+    doc.setFillColor(categoryColor);
+    doc.rect(0, 0, 210, 40, 'F');
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(24);
+    doc.text('VISITOR BADGE', 105, 25, { align: 'center' });
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(12);
+    doc.text(`Nama: ${v.name}`, 20, 55);
+    doc.text(`Perusahaan: ${v.company}`, 20, 65);
+    doc.text(`Tujuan: ${v.purpose || '-'}`, 20, 75);
+    doc.text(`PIC: ${v.pic} (${v.department || '-'})`, 20, 85);
+    doc.text(`Start Date: ${v.startDate || '-'}`, 20, 95);
+    doc.text(`Expired Date: ${v.expiredDate || '-'}`, 20, 105);
+    doc.text(`Site: ${v.siteName}`, 20, 115);
+    doc.text(`Registration: ${v.registrationNumber}`, 20, 125);
+    
+    // QR Code
+    const qrImg = document.querySelector('#qrcode img');
+    if (qrImg) doc.addImage(qrImg.src, 'PNG', 140, 50, 50, 50);
+    
+    // Photo
+    if (v.photo) doc.addImage(v.photo, 'JPEG', 140, 110, 40, 40);
+    
+    // Footer
+    doc.setFontSize(10);
+    doc.setTextColor(100, 100, 100);
+    doc.text('VMS Enterprise - Valid only with QR scan', 105, 280, { align: 'center' });
+    
+    forceDownloadPDF(doc.output('blob'), `badge_${v.registrationNumber}.pdf`);
+    showToast('Badge PDF downloaded');
+}
+
+// ================= QR CODE dengan validasi expired =================
+function buildQR(visitorId) {
+    const visitor = visitors.find(v => v.id === visitorId);
+    if (!visitor) return null;
+    if (visitor.expiredTimestamp < Date.now()) {
+        showToast('Visitor sudah expired! QR tidak valid.', 'error');
+        return null;
+    }
+    return btoa(JSON.stringify({ 
+        vid: visitorId, 
+        ts: Date.now(), 
+        exp: visitor.expiredTimestamp,
+        sig: generateSignature(visitorId + visitor.expiredTimestamp)
+    }));
+}
+
+function parseQR(qrData) {
+    try {
+        const decoded = JSON.parse(atob(qrData));
+        if (decoded.exp && decoded.exp < Date.now()) {
+            showToast('QR Code sudah expired!', 'error');
+            return null;
+        }
+        if (generateSignature(decoded.vid + decoded.exp) !== decoded.sig) return null;
+        return decoded;
+    } catch(e) {
+        return { vid: qrData };
+    }
+}
+
+async function processScan(qrData) {
+    const parsed = parseQR(qrData);
+    if (!parsed) { showToast('QR Code tidak valid atau expired!', 'error'); return; }
+    const visitorId = parsed.vid;
+    const visitor = visitors.find(v => v.id === visitorId);
+    if (!visitor) { showToast('Visitor not found!', 'error'); return; }
+    if (visitor.expiredTimestamp < Date.now()) { showToast('Visitor sudah expired!', 'error'); return; }
+    
+    const isCheckout = visitor.checkOut !== null;
+    if (!isCheckout) {
+        visitor.checkOut = Date.now();
+        addLog(visitor.id, visitor.name, visitor.siteId, 'CHECK_OUT');
+        showToast(`${visitor.name} checked out`);
+    } else {
+        visitor.checkIn = Date.now();
+        visitor.checkOut = null;
+        addLog(visitor.id, visitor.name, visitor.siteId, 'CHECK_IN');
+        showToast(`${visitor.name} checked in`);
+    }
+    secureSave();
+    renderDashboard();
+    renderVisitorsTable();
+    smartSync('scan');
+}
+
+// ================= SITE MANAGEMENT dengan limit =================
+function vmsSite_getCurrentPackage() { return LICENSE_MODE; }
+function vmsSite_setPackage(pkg) { LICENSE_MODE = pkg; localStorage.setItem('vms_package', pkg); vmsSite_updateModalRestrictions(); updateMonetizationUI(); addStatusIndicator(); }
+function vmsSite_load() { const saved = localStorage.getItem('vms_site_names'); if (saved) { const data = JSON.parse(saved); siteNames = data.siteNames || siteNames; customSites = data.customSites || []; } vmsSite_applyToUI(); }
+function vmsSite_applyToUI() {
+    const maxSites = LIMITS[LICENSE_MODE].maxSites;
+    let allSites = { ...siteNames };
+    if (LICENSE_MODE === 'PRO') customSites.forEach((s, i) => allSites[`custom_${i}`] = s);
+    else allSites = Object.fromEntries(Object.entries(allSites).slice(0, maxSites));
+    
+    const select = document.getElementById('visitorSite');
+    if (select) select.innerHTML = Object.entries(allSites).map(([k, v]) => `<option value="${k}" ${k === SITE_ID ? 'selected' : ''}>${v}</option>`).join('');
+    const siteSelector = document.getElementById('siteSelector');
+    if (siteSelector) siteSelector.innerHTML = Object.entries(allSites).map(([k, v]) => `<option value="${k}" ${k === SITE_ID ? 'selected' : ''}>${v}</option>`).join('');
+}
+function vmsSite_save() { localStorage.setItem('vms_site_names', JSON.stringify({ siteNames, customSites })); vmsSite_applyToUI(); showToast("Site names saved"); }
+function vmsSite_updateModalRestrictions() { const isPro = LICENSE_MODE === 'PRO'; document.getElementById('addCustomSiteBtn').style.display = isPro ? 'block' : 'none'; document.getElementById('siteUpgradeMsg').style.display = 'block'; }
+function vmsSite_renderDynamicSites() { const container = document.getElementById('customSiteModalList'); if (!container) return; container.innerHTML = customSites.map((site, idx) => `<div class="site-row"><input type="text" value="${site}" data-custom-idx="${idx}" class="custom-site-input"><button onclick="vmsSite_removeCustomSite(${idx})" class="btn-danger">🗑️</button></div>`).join(''); }
+function vmsSite_open() { 
+    if (LICENSE_MODE === 'DEMO') { vmsSite_upgradePrompt(); return; }
+    const modalList = document.getElementById('siteModalList');
+    const maxSites = LIMITS[LICENSE_MODE].maxSites;
+    const showSites = Object.fromEntries(Object.entries(siteNames).slice(0, maxSites));
+    modalList.innerHTML = Object.entries(showSites).map(([key, name]) => `<div class="site-row"><input type="text" value="${name}" data-key="${key}" class="site-name-input"></div>`).join('');
+    vmsSite_renderDynamicSites();
+    vmsSite_updateModalRestrictions();
+    document.getElementById('siteModal').classList.add('active');
+}
+function vmsSite_close() { document.getElementById('siteModal').classList.remove('active'); }
+function vmsSite_submit() {
+    document.querySelectorAll('.site-name-input').forEach(inp => { const key = inp.dataset.key; if (key && inp.value) siteNames[key] = inp.value; });
+    const newCustom = []; document.querySelectorAll('.custom-site-input').forEach(inp => { if (inp.value) newCustom.push(inp.value); });
+    if (LICENSE_MODE === 'PRO') customSites = newCustom;
+    vmsSite_save(); vmsSite_close();
+}
+function vmsSite_add() { if (LICENSE_MODE !== 'PRO') { vmsSite_upgradePrompt(); return; } customSites.push("New Site"); vmsSite_renderDynamicSites(); }
+function vmsSite_removeCustomSite(idx) { customSites.splice(idx, 1); vmsSite_renderDynamicSites(); }
+function vmsSite_upgradePrompt() { alert("Upgrade to PRO for unlimited sites!"); }
+
+// ================= MONETIZATION dengan limit visitor & device =================
+function getCurrentVisitorCount() { const today = new Date().toDateString(); return visitors.filter(v => new Date(v.checkIn).toDateString() === today).length; }
+function getActiveDeviceCount() { return serverDevices.filter(d => d.status === 'ACTIVE' && d.deviceId !== DEVICE_ID).length + 1; }
+function isBasicLimitReached() { return getCurrentVisitorCount() >= LIMITS[LICENSE_MODE].maxVisitors; }
+function isDeviceLimitReached() { return getActiveDeviceCount() >= LIMITS[LICENSE_MODE].maxDevices; }
+function canRegister() { 
+    if (isBasicLimitReached()) { alert(`Limit ${LICENSE_MODE} reached! ${LICENSE_MODE === 'DEMO' ? 'Max 5 visitors' : 'Max 150 visitors'}. Hapus visitor lama atau upgrade ke PRO.`); return false; }
+    return true;
+}
+function canScan() { return true; }
+function updateMonetizationUI() {
+    const limit = LIMITS[LICENSE_MODE].maxVisitors;
+    const count = getCurrentVisitorCount();
+    const percent = limit === Infinity ? 0 : (count / limit) * 100;
+    const fill = document.getElementById('usageProgress');
+    if (fill) { fill.style.width = Math.min(percent, 100) + '%'; fill.className = 'progress-fill'; if (percent >= 90) fill.classList.add('danger'); else if (percent >= 70) fill.classList.add('warning'); }
+    document.getElementById('usageText').innerHTML = `${count} / ${limit === Infinity ? 'Unlimited' : limit} today`;
+    document.getElementById('visitorCount').innerHTML = count;
+    document.getElementById('visitorLimit').innerHTML = limit === Infinity ? '∞' : limit;
+    document.getElementById('packageName').innerHTML = LICENSE_MODE;
+    const registerBtn = document.getElementById('registerBtn');
+    if (registerBtn) registerBtn.disabled = isBasicLimitReached();
+}
+
+// ================= FUNGSI LAIN (getGPS, distanceKM, secureSave, dll) =================
+function getGPS() { return new Promise((resolve) => { if (!navigator.geolocation) { resolve(null); return; } navigator.geolocation.getCurrentPosition((pos) => resolve({ lat: pos.coords.latitude, lng: pos.coords.longitude }), () => resolve(null), { timeout: 5000 }); }); }
+function distanceKM(lat1, lon1, lat2, lon2) { const R = 6371; const dLat = (lat2 - lat1) * Math.PI / 180; const dLon = (lon2 - lon1) * Math.PI / 180; const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) * Math.sin(dLon/2) * Math.sin(dLon/2); return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); }
+async function runAntiNakalCheck(siteId) { if (LICENSE_MODE === 'DEMO') return true; let violation = null; if (ANTI_NAKAL.lastSite && ANTI_NAKAL.lastSite !== siteId) violation = { type: 'SITE_JUMP' }; const gps = await getGPS(); if (gps && ANTI_NAKAL.lastGPS) { const dist = distanceKM(ANTI_NAKAL.lastGPS.lat, ANTI_NAKAL.lastGPS.lng, gps.lat, gps.lng); if (dist > 5) violation = { type: 'GPS_ANOMALY' }; ANTI_NAKAL.lastGPS = gps; } else if (gps) { ANTI_NAKAL.lastGPS = gps; } ANTI_NAKAL.lastSite = siteId; ANTI_NAKAL.lastOnline = Date.now(); if (violation && LICENSE_KEY) { await safeFetch(`${CLOUD_URL}/report-violation`, { method: 'POST', body: JSON.stringify({ licenseKey: LICENSE_KEY, deviceId: DEVICE_ID, type: violation.type }) }); return false; } secureSave(); return true; }
+function signData(data) { const secret = 'vms_secret_' + (LICENSE_KEY || 'demo'); return CryptoJS.SHA256(JSON.stringify(data) + secret).toString(); }
+function secureSave() { const dataToSave = { visitors: visitors.slice(0, 2000), logs: logs.slice(0, 5000), antiNakalData: ANTI_NAKAL, siteNames, customSites, lastUpdated: Date.now() }; dataToSave.signature = signData(dataToSave); localStorage.setItem('vms_data', JSON.stringify(dataToSave)); }
+function secureLoad() { const saved = localStorage.getItem('vms_data'); if (!saved) return false; try { const data = JSON.parse(saved); const sig = data.signature; delete data.signature; if (signData(data) !== sig) { console.warn('Tamper detected'); return false; } visitors = data.visitors || []; logs = data.logs || []; ANTI_NAKAL = data.antiNakalData || { lastSite: null, lastGPS: null, lastOnline: Date.now(), flags: [] }; siteNames = data.siteNames || siteNames; customSites = data.customSites || []; return true; } catch(e) { return false; } }
+window.onerror = function(msg, url, line, col, error) { console.error('Global error:', msg, error); return false; };
+window.onunhandledrejection = function(e) { console.error('Unhandled rejection:', e.reason); };
+function generateReg() { return 'REG' + Date.now() + '-' + Math.random().toString(36).substr(2, 6).toUpperCase(); }
+function generateSignature(data) { return CryptoJS.SHA256(data + (LICENSE_KEY || 'demo')).toString().substring(0, 16); }
+function waitQRCodeReady() { return new Promise(resolve => { if (typeof QRCode !== 'undefined') resolve(); else setTimeout(() => waitQRCodeReady().then(resolve), 100); }); }
+async function generateQRImage(visitorId) { await waitQRCodeReady(); const container = document.getElementById('qrcode'); container.innerHTML = ''; new QRCode(container, { text: buildQR(visitorId), width: 200, height: 200 }); }
+function addLog(visitorId, visitorName, siteId, type) { logs.unshift({ id: 'L'+Date.now(), visitorId, visitorName, siteId, siteName: siteNames[siteId] || siteId, type, timestamp: Date.now(), _synced: false }); secureSave(); renderLogTable(); }
+function ensureJsPDFReady() { return new Promise(resolve => { if (window.jspdf) resolve(); else setTimeout(() => ensureJsPDFReady().then(resolve), 100); }); }
+function forceDownloadPDF(data, filename) { const blob = new Blob([data], { type: 'application/pdf' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename; a.click(); URL.revokeObjectURL(blob); }
+function showPreview() { if (!currentVisitorForPDF) return; document.getElementById('pdfPreviewContent').innerHTML = `<div style="border:1px solid #ddd;padding:15px;border-radius:10px;"><h3>${currentVisitorForPDF.name}</h3><p>${currentVisitorForPDF.company}</p><p>${currentVisitorForPDF.purpose || ''}</p></div>`; document.getElementById('pdfPreviewModal').classList.add('active'); }
+function closePdfPreview() { document.getElementById('pdfPreviewModal').classList.remove('active'); }
+async function capturePhoto() { if (!navigator.mediaDevices) { alert('Camera not supported'); return; } const video = document.createElement('video'); const stream = await navigator.mediaDevices.getUserMedia({ video: true }); video.srcObject = stream; video.play(); setTimeout(() => { const canvas = document.createElement('canvas'); canvas.width = video.videoWidth; canvas.height = video.videoHeight; canvas.getContext('2d').drawImage(video, 0, 0); photoDataURL = canvas.toDataURL('image/jpeg', 0.8); document.getElementById('photoPreview').innerHTML = `<img src="${photoDataURL}" style="max-width:100px;border-radius:10px;">`; stream.getTracks().forEach(t => t.stop()); }, 1000); }
+function initScanner() { html5QrCode = new Html5Qrcode("preview"); }
+async function startScanner() { if (!html5QrCode) initScanner(); try { await html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, onScanSuccess, () => {}); document.getElementById('startScannerBtn').disabled = true; document.getElementById('stopScannerBtn').disabled = false; } catch(e) { showToast('Camera error', 'error'); } }
+function stopScanner() { if (html5QrCode && html5QrCode.isScanning) { html5QrCode.stop(); document.getElementById('startScannerBtn').disabled = false; document.getElementById('stopScannerBtn').disabled = true; } }
+function onScanSuccess(decoded) { stopScanner(); processScan(decoded); }
+async function manualCheckin() { const qr = document.getElementById('manualQR').value; if (qr) { await processScan(qr); document.getElementById('manualQR').value = ''; } }
+async function manualCheckout() { const qr = document.getElementById('manualQR').value; if (qr) { await processScan(qr); document.getElementById('manualQR').value = ''; } }
+function renderDashboard() { const today = new Date().toDateString(); const todayVisitors = visitors.filter(v => new Date(v.checkIn).toDateString() === today).length; document.getElementById('statTodayVisitors').innerHTML = todayVisitors; document.getElementById('statActiveVisitors').innerHTML = visitors.filter(v => !v.checkOut && v.expiredTimestamp > Date.now()).length; document.getElementById('statTotalCheckins').innerHTML = logs.filter(l => l.type === 'CHECK_IN').length; document.getElementById('statTotalCheckouts').innerHTML = logs.filter(l => l.type === 'CHECK_OUT').length; updateMonetizationUI(); renderVisitorsTable(); renderLogTable(); const last7 = []; for (let i=6; i>=0; i--) { const d = new Date(); d.setDate(d.getDate()-i); last7.push(visitors.filter(v => new Date(v.checkIn).toDateString() === d.toDateString()).length); } const ctx = document.getElementById('trendChart').getContext('2d'); if (trendChart) trendChart.destroy(); trendChart = new Chart(ctx, { type: 'line', data: { labels: ['6d','5d','4d','3d','2d','1d','Today'], datasets: [{ label: 'Visitors', data: last7, borderColor: '#667eea', fill: true }] } }); }
+function renderLogTable() { const tbody = document.querySelector('#logsTable tbody'); if (!tbody) return; tbody.innerHTML = logs.slice(0, 200).map(l => `<tr><td>${new Date(l.timestamp).toLocaleString()}</td><td>${l.visitorName}</td><td>${l.siteName}</td><td><span class="badge-${l.type === 'CHECK_IN' ? 'success' : 'danger'}">${l.type}</span></td></tr>`).join(''); }
+function switchTab(tabName) { document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active')); document.getElementById(`${tabName}Tab`).classList.add('active'); document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active')); if (event && event.target) event.target.classList.add('active'); if (tabName === 'dashboard') renderDashboard(); if (tabName === 'visitors') renderVisitorsTable(); if (tabName === 'logs') renderLogTable(); if (tabName === 'devices') loadDevicesFromServer(); }
+function hashPayload(payload) { return CryptoJS.SHA256(JSON.stringify(payload)).toString(); }
+function buildPayload() { return { visitors: visitors.filter(v => !v._synced), logs: logs.filter(l => !l._synced), antiData: ANTI_NAKAL, timestamp: Date.now() }; }
+async function saveToCloudSafe() { if (!LICENSE_KEY || !navigator.onLine) return; const payload = buildPayload(); if (payload.visitors.length === 0 && payload.logs.length === 0) return; const hash = hashPayload(payload); if (syncQueue.includes(hash)) return; syncQueue.push(hash); try { const res = await safeFetch(`${CLOUD_URL}/save`, { method: 'POST', body: JSON.stringify({ licenseKey: LICENSE_KEY, ...payload }) }); if (res.ok) { visitors.forEach(v => v._synced = true); logs.forEach(l => l._synced = true); secureSave(); } } catch(e) { console.error('Sync failed'); } finally { syncQueue = syncQueue.filter(h => h !== hash); } }
+let syncTimeout = null;
+function smartSync(delayType = 'normal') { const delay = delayType === 'scan' ? 300 : 1000; if (syncTimeout) clearTimeout(syncTimeout); syncTimeout = setTimeout(() => { saveToCloudSafe(); }, delay); }
+async function sha256Hash(text) { return CryptoJS.SHA256(text).toString(); }
+function detectMode() { return LICENSE_MODE; }
+async function checkOnline() { try { const res = await fetch(`${CLOUD_URL}/`, { method: 'HEAD', cache: 'no-store' }); return res.ok; } catch(e) { return false; } }
+async function ensureDefaultAdmin() { const users = getUsers(); if (!users.find(u => u.username === 'admin')) { users.push({ id: Date.now(), username: 'admin', password: await hashPassword('123456'), role: 'SUPER_ADMIN', createdAt: Date.now() }); localStorage.setItem('vms_users', JSON.stringify(users)); } }
+async function syncUsersToServer() { if (LICENSE_KEY && navigator.onLine) { await safeFetch(`${CLOUD_URL}/sync-users`, { method: 'POST', body: JSON.stringify({ licenseKey: LICENSE_KEY, users: getUsers() }) }); } }
+async function serverLogin(username, password) { const res = await safeFetch(`${CLOUD_URL}/login`, { method: 'POST', body: JSON.stringify({ username, password }) }); if (res.ok && res.data) { currentUser = res.data.user; localStorage.setItem('vms_current_user', JSON.stringify(currentUser)); updateUserUI(); return true; } return false; }
+function localLogin(username, password) { const users = getUsers(); const user = users.find(u => u.username === username); if (user && user.password === CryptoJS.SHA256(password).toString()) { currentUser = user; localStorage.setItem('vms_current_user', JSON.stringify(user)); updateUserUI(); return true; } return false; }
+async function hybridLogin() { const username = document.getElementById('loginUsername').value; const password = document.getElementById('loginPassword').value; let success = false; if (LICENSE_MODE === 'PRO' && await checkOnline()) success = await serverLogin(username, password); else success = localLogin(username, password); if (success) { showToast('Login success'); renderUsersTable(); } else { alert('Login failed'); } }
+function hybridLogout() { currentUser = null; localStorage.removeItem('vms_current_user'); updateUserUI(); }
+async function validateSession() { if (!currentUser) return false; if (LICENSE_MODE === 'PRO' && await checkOnline()) { const res = await safeFetch(`${CLOUD_URL}/admin/users`, { method: 'GET' }); return res.ok; } return true; }
+async function hybridInitSession() { await ensureDefaultAdmin(); loadUserSession(); if (LICENSE_MODE === 'PRO' && await checkOnline()) await syncUsersToServer(); }
+function addStatusIndicator() { document.getElementById('modeIndicator').innerHTML = `🔒 ${LICENSE_MODE} | ${DEVICE_ID ? DEVICE_ID.substring(0,8) : 'No ID'} | ${currentUser ? currentUser.username : 'Guest'}`; }
+async function askLicense() { return prompt('Masukkan License Key untuk aktivasi VMS (kosongkan untuk DEMO):'); }
+const originalFetch = window.fetch;
+window.fetch = function(url, options) { if (typeof url === 'string' && url.includes('/save') && LICENSE_KEY && options && options.body) { try { const body = JSON.parse(options.body); body.licenseKey = LICENSE_KEY; options.body = JSON.stringify(body); } catch(e) {} } return originalFetch(url, options); };
+function createForm() { const meta = { deviceId: 'dev-' + Date.now() + '-' + Math.random().toString(36).substr(2,9), createdAt: Date.now(), fingerprint: navigator.userAgent + screen.width + screen.height + navigator.language }; localStorage.setItem('vms_device_meta', JSON.stringify(meta)); return meta; }
+function ensureMeta() { let meta = localStorage.getItem('vms_device_meta'); if (!meta) meta = createForm(); return JSON.parse(meta); }
+function getDeviceMeta() { return ensureMeta(); }
+async function apiCall(endpoint, method = 'GET', body = null) { const headers = { 'Content-Type': 'application/json' }; if (LICENSE_KEY) headers['x-license'] = LICENSE_KEY; const options = { method, headers }; if (body) options.body = JSON.stringify(body); try { const res = await originalFetch(`${CLOUD_URL}${endpoint}`, options); const data = await res.json(); return data; } catch(e) { return { ok: false, message: e.message }; } }
+async function loadDevices() { if (!LICENSE_KEY) return []; const res = await apiCall('/client/devices', 'POST', { licenseKey: LICENSE_KEY }); return res.data?.devices || []; }
+async function syncToCloud() { await saveToCloudSafe(); }
+async function safeFetch(url, options = {}) { try { const res = await originalFetch(url, options); const data = await res.json(); return { ok: res.ok, data: data.data || data, message: data.message, status: res.status }; } catch(e) { return { ok: false, data: null, message: e.message, status: 500 }; } }
+async function applyLicenseKey() {
+    let key = localStorage.getItem('vms_license_key');
+    if (!key) key = await askLicense();
+    if (!key) { LICENSE_MODE = 'DEMO'; updateMonetizationUI(); return false; }
+    LICENSE_KEY = key;
+    DEVICE_ID = getDeviceMeta().deviceId;
+    try {
+        const res = await safeFetch(`${CLOUD_URL}/validate-license`, {
+            method: 'POST', body: JSON.stringify({ licenseKey: LICENSE_KEY, deviceId: DEVICE_ID, deviceName: navigator.userAgent.substring(0,100), deviceInfo: getDeviceMeta() })
+        });
+        const data = res.data;
+        if (res.ok && data) {
+            LICENSE_MODE = data.package || 'DEMO';
+            vmsSite_setPackage(LICENSE_MODE);
+            updateMonetizationUI();
+            await loadDevicesFromServer();
+            return true;
+        }
+    } catch(e) { console.error(e); }
+    LICENSE_MODE = 'DEMO';
+    updateMonetizationUI();
+    return false;
+}
+function getUsers() { const users = localStorage.getItem('vms_users'); return users ? JSON.parse(users) : []; }
+async function hashPassword(pw) { return CryptoJS.SHA256(pw).toString(); }
+async function createUser() { if (!isAdmin()) { alert("Only admin can create users"); return; } const username = document.getElementById('newUsername').value; const password = document.getElementById('newPassword').value; const role = document.getElementById('newUserRole').value; if (!username || !password) { alert("Username & password required"); return; } const users = getUsers(); if (users.find(u => u.username === username)) { alert("User exists"); return; } users.push({ id: Date.now(), username, password: await hashPassword(password), role, createdAt: Date.now() }); localStorage.setItem('vms_users', JSON.stringify(users)); if (LICENSE_MODE === 'PRO' && navigator.onLine) await syncUsersToServer(); updateUserUI(); document.getElementById('newUsername').value = ''; document.getElementById('newPassword').value = ''; showToast("User created"); }
+function loadUserSession() { const saved = localStorage.getItem('vms_current_user'); if (saved) currentUser = JSON.parse(saved); updateUserUI(); }
+function isAdmin() { return currentUser && currentUser.role === 'SUPER_ADMIN'; }
+function applyRoleVisibility() { document.querySelectorAll('.admin-only').forEach(el => el.style.display = isAdmin() ? 'block' : 'none'); }
+function updateUserUI() { const userInfo = document.getElementById('userInfo'); if (userInfo) userInfo.innerHTML = currentUser ? `Logged in as: ${currentUser.username} (${currentUser.role})` : 'Not logged in'; applyRoleVisibility(); const adminPanel = document.getElementById('adminOnlyPanel'); if (adminPanel) adminPanel.style.display = isAdmin() ? 'block' : 'none'; renderUsersTable(); renderDevicesList(); }
+function setSite(siteId) { SITE_ID = siteId; localStorage.setItem('vms_current_site', siteId); vmsSite_applyToUI(); showToast(`Site changed to ${siteNames[siteId] || siteId}`); }
+function renderUsersTable() { const tbody = document.querySelector('#usersTable tbody'); if (!tbody) return; const users = getUsers(); tbody.innerHTML = users.map(u => `<tr><td>${u.username}</td><td>${u.role}</td><td>${isAdmin() && u.role !== 'SUPER_ADMIN' ? `<button onclick="deleteUser('${u.id}')" class="btn-danger">Delete</button>` : '-'}</td>`).join(''); }
+function deleteUser(id) { let users = getUsers(); users = users.filter(u => u.id != id); localStorage.setItem('vms_users', JSON.stringify(users)); renderUsersTable(); showToast('User deleted'); }
+function showToast(msg, type = 'info') { const toast = document.createElement('div'); toast.className = 'toast'; toast.textContent = msg; toast.style.background = type === 'error' ? '#dc3545' : type === 'success' ? '#28a745' : '#667eea'; document.body.appendChild(toast); setTimeout(() => toast.remove(), 3000); }
+
+async function init() {
+    secureLoad();
+    vmsSite_load();
+    ensureMeta();
+    DEVICE_ID = getDeviceMeta().deviceId;
+    await applyLicenseKey();
+    await hybridInitSession();
+    addStatusIndicator();
+    renderDashboard();
+    vmsSite_applyToUI();
+    await loadDevicesFromServer();
+    setInterval(() => { smartSync('normal'); }, 30000);
+    window.addEventListener('online', () => { showToast('Online, syncing...'); saveToCloudSafe(); loadDevicesFromServer(); });
+}
+init();
+</script>
 </body>
 </html>
